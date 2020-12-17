@@ -26,6 +26,7 @@ KDARaw$Cash_Price<-pear(KDARaw$Cash_Price)
 
 KDARaw$Date<-as.Date(KDARaw$Date, format = "%m/%d/%Y")
 KDARaw$PL<-as.factor(KDARaw$PL)
+KDARaw$NU<-as.factor(KDARaw$NU)
 
 #check date
 class(KDARaw$Date)
@@ -38,8 +39,11 @@ str(KDARaw)
 
 head(KDARaw)
 tail(KDARaw)
+
 #test df
-KDA1<-KDARaw
+KDAt<-KDARaw
+#lets add some columns
+KDAt<-left_join(KDAt, count(group_by(KDAt, Date)), by = "Date")
 
 #But check for NAs
 capture.output(
@@ -63,28 +67,51 @@ plot(KDARaw$Date,KDARaw$Front_Gross_Profit)
 plot(KDARaw$Date,KDARaw$Back_Gross_Profit)
 plot(KDARaw$Date,KDARaw$Total_Gross_Profit)
 plot(KDARaw$Date,KDARaw$Cash_Price)
+###########
+#Some trend exploration for Make
+unique(KDAt$Make)
+ggplot(KDAt, aes(Make)) + theme(axis.text = element_text(angle = 90)) + geom_bar()
+ggplot(filter(KDAt, Make == c("CHEV", "MAZD", "KIA")), 
+       aes(Date, Total_Gross_Profit/n)) +
+  geom_smooth(aes(col = Make), se = T)
+#Your average total gross for each car sale is increasing
+ggplot(KDAt, aes(Make)) + theme(axis.text = element_text(angle = 90)) + geom_bar()
+ggplot(filter(KDAt, Make == c("CHEV", "MAZD", "KIA")), 
+       aes(Date, Back_Gross_Profit/n)) +
+  geom_smooth(aes(col = Make), se = T)
+###ggplot(filter(KDAt, Make == c("CHEV", "MAZD", "KIA")), 
+###       aes(Date, Front_Gross_Profit/n)) +
+###  geom_smooth(aes(col = Make), se = T) + facet_wrap(facets = KDA1$Make)
+
+
+#New/Used
+ggplot(filter(KDAt, NU == "USED"), aes(Date)) + geom_bar()
+#after 2018
+ggplot(filter(KDAt, Date >= "2018-01-01"), aes(Date)) + geom_bar(aes(col = NU))
+
+ggplot(KDAt, aes(Date, Total_Gross_Profit/n)) + geom_smooth() + facet_wrap(facets = KDAt$NU)
 
 #new df by day
 #lots of missing days
-Day<- as.data.frame(seq(as.Date("2016-01-01"), as.Date("2020-11-16"), by="days"))
+Day<- as.data.frame(seq(as.Date("2016-01-01"), as.Date("2020-11-16"), by ="days"))
 colnames(Day)<-c("Date")
-temp<- group_by(KDA1, Date) %>%
+temp<- group_by(KDAt, Date) %>%
   mutate(sum.fgp = sum(Front_Gross_Profit, na.rm = TRUE)) %>%
   summarise(sum.fgp, .groups = 'drop') %>%
   unique()
-Day<-left_join(Day, count(group_by(KDA1, Date)), by = "Date")
+Day<-left_join(Day, count(group_by(KDAt, Date)), by = "Date")
 Day<-left_join(Day, temp, by = "Date")
-temp<- group_by(KDA1, Date) %>%
+temp<- group_by(KDAt, Date) %>%
   mutate(sum.bgp= sum(Back_Gross_Profit, na.rm = TRUE)) %>%
   summarise(sum.bgp, .groups = 'drop') %>%
   unique()
 Day<-left_join(Day, temp, by = "Date")
-temp<- group_by(KDA1, Date) %>%
+temp<- group_by(KDAt, Date) %>%
   mutate(sum.tgp = sum(Total_Gross_Profit, na.rm = TRUE)) %>%
   summarise(sum.tgp, .groups = 'drop') %>%
   unique()
 Day<-left_join(Day, temp, by = "Date")
-temp<- group_by(KDA1, Date) %>%
+temp<- group_by(KDAt, Date) %>%
   mutate(sum.cp = sum(Cash_Price, na.rm = TRUE)) %>%
   summarise(sum.cp, .groups = 'drop') %>%
   unique()
@@ -100,7 +127,7 @@ Day.full1<-complete(imp, 20)
 
 #Fill with tidyr
 Day.o<-na.omit(Day)
-Day.full2<-fill(data = Day, dplyr::everything(), .direction = 'downup')
+Day.full2<-fill(data = Day, dplyr::everything(), .direction = 'down')
 
 #QUick plot
 
@@ -115,7 +142,7 @@ ggplot(aes(x = Date, y = .6*sum.tgp-600)) + geom_smooth(aes(color = "total gross
   geom_smooth(aes(x = Date, y = .15*(sum.cp-183000), color = "cash price"), se = FALSE) +
   geom_smooth(aes(x = Date, y = 1000*n+5000, color = "n sales"), se = FALSE) + ylab("")
 
-#SUM _ by day imputed by sample
+#SUM _ by day imputed by pmm
 Day.full1 %>%
 ggplot(aes(x = Date, y = .6*sum.tgp-600)) + geom_smooth(aes(color = "total gross"), se = FALSE) +
   geom_smooth(aes(x = Date, y = sum.bgp, color = "back gross"), se = FALSE) + 
@@ -183,6 +210,8 @@ cor(rogue$t.s.tgp, oil$Value, use = 'pairwise')
 GM <- read.csv("C:/Users/keato/Dropbox/Shop Data/GM.csv")
 GM$Date<-as.Date(GM$Date)
 GM <- left_join(blank, GM, by = c("date" = "Date"))
+GM<-fill(data = GM, dplyr::everything(), .direction = 'down')
+
 
 #again a normalized plot
 ggplot(rogue, aes(date, t.s.tgp, color = "LJ tgp")) + geom_line() + 
@@ -190,8 +219,15 @@ ggplot(rogue, aes(date, t.s.tgp, color = "LJ tgp")) + geom_line() +
   geom_line(aes(date, t.s.fgp, color = "LJ fgp")) +
   geom_line(aes(date, t.s.bgp, color = "LJ bgp")) +
   geom_line(aes(date, .05*t.s.cp, color = "LJ cp"))
+
+
+### function develooppp
 #GM follows LJ, so no luck there
 #Cor just for fun
 cor(GM$Adj.Close, rogue$t.s.tgp, method = 'pearson', use = 'pairwise')
 #Not bad
 #should write function to do this for me when I import data
+range(na.omit(GM$date))
+a<-filter(GM, date>="2020-08-01")
+b<-filter(rogue, date>= "2020-08-01")
+cor(a$Adj.Close, b$t.s.tgp, method = "pearson", use = 'pairwise')
