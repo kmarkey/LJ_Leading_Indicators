@@ -1,0 +1,104 @@
+
+#using other data
+#Using exam funtion, Quandl package, and Day.t
+
+
+#Home sales
+#Consumer confidence index
+#Interest Rates
+#appointments
+#Total vehicle sales  retail SAAR (check between)
+#SAAR in washington, King/Snohomish, cross-sell
+
+#Predict appointments set?
+
+#Online searching data, website hits?
+
+#Natural Rate of unemployment (short-term)
+#monthly doesn't work with this data
+
+#source("Tranform.R")
+#Also, we'll just select a few indicators that I think are important:
+
+Quandl.api_key("DLPMVwPNyH57sF6Z1iM4")
+source("Tranform.R")
+#pick important variables
+important <- c("date", "fgp", "tgp", "n", "fgp.lead", "tgp.lead", "n.lead", 
+               "fgp.lead.6", "tgp.lead.6", "n.lead.6")
+Day.n <- select(Day.t, all_of(important))
+Month.n <- select(Month.t, all_of(important))
+#function {exam}
+
+exam<-function(data, y, d, time) {
+  
+  if(time == 'day'){
+    data<-left_join(
+      blank, data, by = c('date' = d))
+    x<-data[,which(colnames(data) == y)]
+    rac<- as.data.frame(
+      rcorr(
+        as.matrix(
+          select(Day.n, -c("date"))), x)$r)
+}
+  else if(time == 'month'){
+    data<-left_join(
+      blank.m, data, by = c('date' = d))
+    x<-data[,which(colnames(data) == y)]
+    rac<- as.data.frame(
+      rcorr(
+        as.matrix(
+          select(Month.n, -c("date"))), x)$r)
+    }
+  else(print("incorrect time format, must be 'month' or 'day'"))
+  #We only want last column of race
+  #start running table?
+  #for now just print it out
+  Kib<-arrange(select(rac, y), desc(abs(y)))
+  #Choose close variables and plot them with data
+  print(Kib)
+}
+#Compare Day.n (refined daily trends) and Day (raw data) to new indicators
+
+
+#E-mini Natural Gas Futures, Continuous Contract #1 (QG1) (Front Month)
+Quandl("CHRIS/CME_QG1", collapse = 'daily', start_date="2016-01-01", end_date="2020-03-25") %>%
+  exam("Settle", "Date", 'day')
+
+#E-mini Natural Gas Futures, Continuous Contract #2 (QG2)
+Quandl("CHRIS/CME_QG2", collapse = 'daily', start_date="2016-01-01", end_date="2020-03-25") %>%
+  exam("Settle", "Date", 'day')
+
+#90 Day Bank Accepted Bills Futures, Continuous Contract #1 (IR1) (Front Month)
+Quandl("CHRIS/ASX_IR1", collapse = 'daily', start_date="2016-01-01", end_date="2020-03-25") %>% 
+  exam("Previous Settlement", "Date", 'day')
+
+#House Price Indices - Seattle-Tacoma-Bellevue WA
+shpi <-Quandl("FMAC/HPI_42660", collapse = 'monthly', start_date ="2016-01-01", end_date ="2020-03-31")
+shpi$Date <- as.Date(floor_date(shpi$Date, unit = "month"))
+exam(shpi, "NSA Value", "Date", 'month')
+
+#HPI - Washington State
+whpi <-Quandl("FMAC/HPI_WA", collapse = 'monthly', start_date ="2016-01-01", end_date ="2020-03-31")
+shpi$Date <- as.Date(floor_date(shpi$Date, unit = "month"))
+exam(shpi, "NSA Value", "Date", 'month')
+
+#15-Year Fixed Rate Mortgage Average in the United States
+frm15 <-Quandl("FMAC/15US", collapse = 'monthly', start_date ="2016-01-01", end_date ="2020-03-31")
+frm15$Date <- as.Date(floor_date(frm15$Date, unit = "month"))
+exam(frm15, "Value", "Date", "month")
+
+#30-Year Fixed Rate Mortgage Average in the United States
+frm30 <- Quandl("FMAC/30US", collapse = 'monthly', start_date ="2016-01-01", end_date ="2020-03-31")
+frm30$Date <- as.Date(floor_date(frm30$Date, unit = "month"))
+exam(frm30, "Value", "Date", "month")
+
+#5/1-Year Adjustable Rate Mortgage Average in the United States
+frm5 <- Quandl("FMAC/5US", collapse = 'monthly', start_date ="2016-01-01", end_date ="2020-03-31")
+frm5$Date <- as.Date(floor_date(frm5$Date, unit = "month"))
+exam(frm5, "Value", "Date", "month")
+
+#-0.90!
+ggplot(Month.n) + geom_line(aes(x = date, y = n.lead.6, color = "n.lead.6 trend")) +
+  geom_line(data = frm5, aes(x = Date, y = 100*Value, color = "frm5")) + 
+  geom_line(data = Month, aes(x = date, y = n))
+

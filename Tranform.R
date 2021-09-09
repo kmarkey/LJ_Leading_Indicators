@@ -1,38 +1,61 @@
+#Running Questions bar
+# What do these variables actually mean?
+# Which ones would be best to track? Which is the best indicator of overall business performance?
+# How can we ingest lots more data? Can we get local data?
+
+# COnditions
+# Used all good data, no collinearity
+# Summed up values per day
+# Took a ts() for freq = 365, observing a yearly trend
+# Tested against a quarter and 2-quarter lead
+# More parameters than experimental variables--good or bad?
+
 library(tidyverse)
 library(mice)
+library(ggridges)
+library(lubridate)
 
-KDARaw <- read.csv("C:/Users/keato/Dropbox/Shop Data/Keaton Data Analysis Project-2016-2020.csv", 
-                   na.strings = c("", "-", "--", "---", "	 -   ", " -   ", " ", "  ", strip.white = TRUE))
+library(Quandl)
+library(Hmisc)
+library(corrgram)
+
+####################################################################### warnings suppressed
+options(warn = -1)
+#######################################################################
+#set dir
+setwd("~/LocalRStudio/LJ_Leading_Indicators")
+
+KDARaw <- read_csv("data/Keaton Data Analysis Project-2016-2020.csv",
+                   na = c("", "-", "--", "---", "	 -   ", " -   ", " ", "  "), 
+                   skip = 1, trim_ws = TRUE, col_names = TRUE)
 
 colnames(KDARaw) <- (c("Date", "DealNum", "VStock", "Year", "Make",
                        "Model", "NU", "Front_Gross_Profit", "Back_Gross_Profit",
                        "Total_Gross_Profit", "Cash_Price", "PL", "Sale_Type",
                        "Salesman", "Salesmanager", "FIManager"))
-#remove first row
-KDARaw<-as.data.frame(KDARaw)
-
-KDARaw<- KDARaw[-c(1),]
 
 #remove parenthesis and change parse
-pear<- function(x){
-  x<- gsub("[()]", "", x)
-  x<- gsub(" ", "", x)
-  x<- as.numeric(gsub(",", "", x))
+pear <- function(x){
+  x <- gsub("[()]", "", x)
+  x <- gsub(" ", "", x)
+  x <- gsub(",", "", x)
+  x <- as.numeric(x)
 }
-KDARaw$Front_Gross_Profit<-pear(KDARaw$Front_Gross_Profit)
-KDARaw$Back_Gross_Profit<-pear(KDARaw$Back_Gross_Profit)
-KDARaw$Total_Gross_Profit<- pear(KDARaw$Total_Gross_Profit)
-KDARaw$Cash_Price<-pear(KDARaw$Cash_Price)
 
-KDARaw$Date<-as.Date(KDARaw$Date, format = "%m/%d/%Y")
-KDARaw$PL<-as.factor(KDARaw$PL)
-KDARaw$NU<-as.factor(KDARaw$NU)
+#use across
+KDARaw <- mutate(KDARaw, across(c(Front_Gross_Profit,
+                          Back_Gross_Profit,
+                          Total_Gross_Profit,
+                          Cash_Price), pear))
+
+#set date
+KDARaw$Date <- as.Date(KDARaw$Date, format = "%m/%d/%Y")
 
 #check date
 class(KDARaw$Date)
 class(KDARaw$Front_Gross_Profit)
 
-KDARaw<- arrange(KDARaw, Date)
+KDARaw <- arrange(KDARaw, Date)
 
 summary(KDARaw)
 str(KDARaw)
@@ -40,194 +63,267 @@ str(KDARaw)
 head(KDARaw)
 tail(KDARaw)
 
-#test df
-KDAt<-KDARaw
-#lets add some columns
-KDAt<-left_join(KDAt, count(group_by(KDAt, Date)), by = "Date")
+#copy df
+KDAt <- KDARaw
 
-#But check for NAs
-capture.output(
-  sum(is.na(KDARaw$Back_Gross_Profit)),
-  sum(is.na(KDARaw$Front_Gross_Profit)),
-  sum(is.na(KDARaw$Total_Gross_Profit)),
-  sum(is.na(KDARaw$Cash_Price)))
-#3058 omitted values from back_gross-profit
+#3058 omitted values from back_gross_profit
 #205 from front
 #38  from total
 #251 from cash price
 
-#Logistic regression to tell if this affects results#
-glm(is.na(Back_Gross_Profit) ~ Date, data = KDARaw, family = 'binomial')
+#####
 
-ggplot(KDARaw,aes(x = Date, y = is.na(Back_Gross_Profit))) + geom_point()
-ggplot(KDARaw,aes(x = Date, y = is.na(Cash_Price))) + geom_point()
+#Some quick EDA
+
+######
 
 #quick plots
-plot(KDARaw$Date,KDARaw$Front_Gross_Profit)
-plot(KDARaw$Date,KDARaw$Back_Gross_Profit)
-plot(KDARaw$Date,KDARaw$Total_Gross_Profit)
-plot(KDARaw$Date,KDARaw$Cash_Price)
+plot(KDAt$Date,KDARaw$Front_Gross_Profit)
+plot(KDAt$Date,KDARaw$Back_Gross_Profit)
+plot(KDAt$Date,KDARaw$Total_Gross_Profit)
+plot(KDAt$Date,KDARaw$Cash_Price)
+
 ###########
 #Some trend exploration for Make
 unique(KDAt$Make)
 ggplot(KDAt, aes(Make)) + theme(axis.text = element_text(angle = 90)) + geom_bar()
-ggplot(filter(KDAt, Make == c("CHEV", "MAZD", "KIA")), 
-       aes(Date, Total_Gross_Profit/n)) +
-  geom_smooth(aes(col = Make), se = T)
-#Your average total gross for each car sale is increasing
-ggplot(KDAt, aes(Make)) + theme(axis.text = element_text(angle = 90)) + geom_bar()
-ggplot(filter(KDAt, Make == c("CHEV", "MAZD", "KIA")), 
-       aes(Date, Back_Gross_Profit/n)) +
-  geom_smooth(aes(col = Make), se = T)
-###ggplot(filter(KDAt, Make == c("CHEV", "MAZD", "KIA")), 
-###       aes(Date, Front_Gross_Profit/n)) +
-###  geom_smooth(aes(col = Make), se = T) + facet_wrap(facets = KDA1$Make)
+ggplot(KDAt, aes(x = Make, y = Total_Gross_Profit)) + geom_boxplot() + 
+  theme(axis.text = element_text(angle = 90))
 
+#Nwow filter out Chevy Mazda and Kia
+filter(KDAt, Make == c("CHEV", "MAZD", "KIA")) %>%
+         ggplot() + 
+  geom_smooth(aes(x = Date, y = Total_Gross_Profit, color = Make)) + theme_classic()
 
 #New/Used
-ggplot(filter(KDAt, NU == "USED"), aes(Date)) + geom_bar()
-#after 2018
-ggplot(filter(KDAt, Date >= "2018-01-01"), aes(Date)) + geom_bar(aes(col = NU))
+ggplot() + geom_smooth(data = filter(KDAt, NU == c("USED", "NEW")), 
+                       aes(x = Date, y = Total_Gross_Profit, color = NU)) +
+         geom_point(data = filter(KDAt, NU == "S"), aes(Date, Total_Gross_Profit, color = NU)) +  
+  theme_classic()
 
-ggplot(KDAt, aes(Date, Total_Gross_Profit/n)) + geom_smooth() + facet_wrap(facets = KDAt$NU)
 
-#new df by day
+# To roll up by day, we'll just omit missing values: shouldn't be a big deal for 
+#all but Back_Gross_Profit --which we will not use cause it'll be hard to estimate
+#such a large chunk of data (more than %15)
+
+#Roll up by day and by day per sale
 #lots of missing days
-Day<- as.data.frame(seq(as.Date("2016-01-01"), as.Date("2020-11-16"), by ="days"))
-colnames(Day)<-c("Date")
-temp<- group_by(KDAt, Date) %>%
-  mutate(sum.fgp = sum(Front_Gross_Profit, na.rm = TRUE)) %>%
-  summarise(sum.fgp, .groups = 'drop') %>%
-  unique()
-Day<-left_join(Day, count(group_by(KDAt, Date)), by = "Date")
-Day<-left_join(Day, temp, by = "Date")
-temp<- group_by(KDAt, Date) %>%
-  mutate(sum.bgp= sum(Back_Gross_Profit, na.rm = TRUE)) %>%
-  summarise(sum.bgp, .groups = 'drop') %>%
-  unique()
-Day<-left_join(Day, temp, by = "Date")
-temp<- group_by(KDAt, Date) %>%
-  mutate(sum.tgp = sum(Total_Gross_Profit, na.rm = TRUE)) %>%
-  summarise(sum.tgp, .groups = 'drop') %>%
-  unique()
-Day<-left_join(Day, temp, by = "Date")
-temp<- group_by(KDAt, Date) %>%
-  mutate(sum.cp = sum(Cash_Price, na.rm = TRUE)) %>%
-  summarise(sum.cp, .groups = 'drop') %>%
-  unique()
-Day<-left_join(Day, temp, by = "Date")
+#daily sums
+by_day <- group_by(KDAt, Date) %>%
+  mutate(date = Date,
+         fgp = sum(Front_Gross_Profit, na.rm = T),
+         tgp = sum(Total_Gross_Profit, na.rm = T),
+         cp = sum(Cash_Price, na.rm = T),
+         n = length(NU)) %>%
+  ungroup() %>%
+  summarise(date, fgp, tgp, cp, n) %>%
+  distinct()
 
-#1782 days, 55 NAs
-summary(Day)
+#daily average per sale
+bd_by_sale <- group_by(KDAt,Date) %>%
+  mutate(date = Date,
+         fgp_a = sum(Front_Gross_Profit)/length(NU),
+         tgp_a = sum(Total_Gross_Profit)/length(NU),
+         cp_a = sum(Cash_Price)/length(NU)) %>%
+  ungroup() %>%
+  summarise(date, fgp_a, tgp_a, cp_a) %>%
+  distinct()
 
-#Imputation with mice and just used pmm to impute
-m<-'pmm'
-imp <- mice(data = Day, m = 20, method = c("",m,m,m,m,m))
-Day.full1<-complete(imp, 20)
+#1727 days, but there should be 1782
 
-#Fill with tidyr
-Day.o<-na.omit(Day)
-Day.full2<-fill(data = Day, dplyr::everything(), .direction = 'down')
+rogue <- full_join(by_day, bd_by_sale)
 
-#QUick plot
+#Add the missing days
+time_seq <- seq.Date(from = as.Date("2016-01-01"), 
+                   to = as.Date("2020-11-16"), by = 'day')
 
-ggplot(Day.full1, aes(x = n)) + geom_bar()
-ggplot(Day.full1, aes(x = Date, y = sum.fgp)) + geom_point()
+blank <- as.data.frame(time_seq)
+colnames(blank) <- c("date")
 
-#SUM _ by day raw with loess smooth
-Day %>%
-ggplot(aes(x = Date, y = .6*sum.tgp-600)) + geom_smooth(aes(color = "total gross"), se = FALSE) +
-  geom_smooth(aes(x = Date, y = sum.bgp, color = "back gross"), se = FALSE) + 
-  geom_smooth(aes(x = Date, y = .6*sum.fgp + 8700, color = "front gross"), se = FALSE) +
-  geom_smooth(aes(x = Date, y = .15*(sum.cp-183000), color = "cash price"), se = FALSE) +
-  geom_smooth(aes(x = Date, y = 1000*n+5000, color = "n sales"), se = FALSE) + ylab("")
+Day <- left_join(blank, rogue)
 
-#SUM _ by day imputed by pmm
-Day.full1 %>%
-ggplot(aes(x = Date, y = .6*sum.tgp-600)) + geom_smooth(aes(color = "total gross"), se = FALSE) +
-  geom_smooth(aes(x = Date, y = sum.bgp, color = "back gross"), se = FALSE) + 
-  geom_smooth(aes(x = Date, y = .6*sum.fgp + 8700, color = "front gross"), se = FALSE) +
-  geom_smooth(aes(x = Date, y = .15*(sum.cp-183000), color = "cash price"), se = FALSE) +
-  geom_smooth(aes(x = Date, y = 1000*n+5000, color = "n sales"), se = FALSE) + ylab("") + title("Sum by day")
+#corrgrams of all metrics
+corrgram(select(Day, -date), order = TRUE, lower.panel = panel.shade, upper.panel = panel.pie, 
+         text.panel = panel.txt, main = "'Daily' Corrgram")
 
-#Average _ per sale by day normalized
-Day.full1 %>%
-ggplot(aes(x = Date, y = sum.tgp/n)) + stat_smooth(aes(color = "total gross"), se = FALSE) +
-  stat_smooth(aes(x = Date, y = sum.bgp/n, color = "back gross"), se = FALSE) + 
-  stat_smooth(aes(x = Date, y = sum.fgp/n, color = "front gross"), se = FALSE) +
-  stat_smooth(aes(x = Date, y = .01*(sum.cp-160000), color = "cash price (norm)"), se = FALSE) +
-  ylab("") + title("Avg. per Sale")
+#we want series with low correlation for our feature selection
 
-#Back Gross Profit and cash price looks interesting
-#What is its relationship and relevance?
+# we will use cp, tgp, cp_a, tgp_a, fgp_a, so 5
 
-#We have observations starting in AUGUST 2019 to AUGUST 2020
-#Lets start by year using sum TGP on Day
-t.sum.fgp<-decompose(ts(Day.full1$sum.fgp, frequency = 365))
-plot(t.sum.fgp)
-t.sum.bgp<-decompose(ts(Day.full1$sum.bgp, frequency = 365))
-plot(t.sum.bgp)
-t.sum.tgp<-decompose(ts(Day.full1$sum.tgp, frequency = 365))
-plot(t.sum.tgp)
-t.sum.cp<-decompose(ts(Day.full1$sum.cp, frequency = 365))
-plot(t.sum.cp)
-t.n<-decompose(ts(Day.full1$n, frequency = 365))
-plot(t.n)
+Day <- select(Day, date, cp, cp_a, fgp_a, tgp, tgp_a)
 
-#sum will be more useful and versatile
-#looks good. now we need a dummy with dates for joining
+#**Are the NA's randomly distributed?**
 
-time.seq<-seq.Date(from = as.Date("2016-01-01"), to = as.Date("2020-11-16"), by = 'day')
-blank<-as.data.frame(time.seq)
-colnames(blank)<-c("date")
+#### ridgeline time
+nas <- pivot_longer(Day, cols = cp:tgp_a, names_to = c("names")) %>%
+  filter(is.na(value)) #long df of all NA values for each name
+nas %>%
+  ggplot(aes(x = date, y = as.factor(names), fill = names)) +
+    ggridges::geom_density_ridges(stat = "binline", bins = 52, scale = 1) + # about 52 months
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(y = "variable name", title = "Distribution of NA's")
 
-#Clean first df
-rogue<- cbind(as.data.frame(Day.full1$Date), as.data.frame(t.n$trend),
-              as.data.frame(t.sum.fgp$trend),
-              as.data.frame(t.sum.bgp$trend), as.data.frame(t.sum.tgp$trend), 
-              as.data.frame(t.sum.cp$trend))
-colnames(rogue)<-c("date", "n", "t.s.fgp", "t.s.bgp", "t.s.tgp", "t.s.cp")
-rogue<-left_join(blank, rogue)
+#The whole month of April 2020 is gone, so we cant really do anything with it
+#2020-03-26 : 2020-04-30
+# we will impute without these values for now ###
+Day_1 <- filter(Day, date < "2020-03-26")
 
-plot(rogue)
+#Imputation first:: Unit multiple imputation for 55 missing days
+#using PMM
+imp <- mice(data = Day_1, print = F)
+Day_1_c <- complete(imp)
 
-#Lets get some data: from 2016-01-01 to 2020-11-16
+
+#####??
+which(is.na(Day_1_c))
+
+lead_1 <- 90
+lead_2 <- 180
+############### back to Day ##################################################
+
+#create leads
+Day <- Day_1_c
+
+# and get trends
+#function with freq = 365 for  yearly pattern
+trend_fun = function(raw) {
+  decompose(ts(raw, frequency = 365))$trend
+}
+# go across
+Day_t <- mutate(Day, across(-date, trend_fun))
+
+###################### not the best strat #####################################
+Day_t <- mutate(Day_t, cp_lead = lead(cp, lead_1),
+              cp_a_lead = lead(cp_a, lead_1), # help here
+              fgp_a_lead = lead(fgp_a, lead_1),
+              tgp_lead = lead(tgp, lead_1),
+              tgp_a_lead = lead(tgp_a, lead_1),
+              
+              cp_lead_6 = lead(cp, lead_2),
+              cp_a_lead_6 = lead(cp_a, lead_2),
+              fgp_a_lead_6 = lead(fgp_a, lead_2),
+              tgp_lead_6 = lead(tgp, lead_2),
+              tgp_a_lead_6 = lead(tgp_a, lead_2))
+
+#Now we get trends
+
+#did it work
+ggplot(Day_t) + geom_line(aes(x = date, y = fgp_a)) +
+  geom_line(aes(x = date, y = fgp_a_lead))
+
+# remove extra rows at bottom
+Day_t <- filter(Day_t, !is.na(cp) | !is.na(cp_lead_6))
+
+#and by month
+#we will use daily averages and then average over the month
+Month <- group_by(KDAt, date = floor_date(Date, unit = "month")) %>%
+  mutate(cp = sum(Cash_Price, na.rm = T),
+         cp_a = mean(Cash_Price, na.rm = T),
+         fgp_a = mean(Front_Gross_Profit, na.rm = T),
+         tgp = sum(Total_Gross_Profit, na.rm = T),
+         tgp_a = mean(Total_Gross_Profit, na.rm = T)) %>%
+  ungroup() %>%
+  summarise(date, cp, cp_a, fgp_a, tgp, tgp_a) %>%
+  distinct()
+
+# lead time in months now
+lead_1 <- 3
+lead_2 <- 6
+
+#Now we get trends
+
+#function with freq = 12 for  yearly pattern
+trend_fun = function(raw) {
+  decompose(ts(raw, frequency = 12))$trend
+}
+# go across
+Month_t <- mutate(Month, across(-date, trend_fun))
+
+# add leads
+Month_t <- mutate(Month_t, cp_lead = lead(cp, lead_1),
+                cp_a_lead = lead(cp_a, lead_1), # help here
+                fgp_a_lead = lead(fgp_a, lead_1),
+                tgp_lead = lead(tgp, lead_1),
+                tgp_a_lead = lead(tgp_a, lead_1),
+                
+                cp_lead_6 = lead(cp, lead_2),
+                cp_a_lead_6 = lead(cp_a, lead_2), # help here
+                fgp_a_lead_6 = lead(fgp_a, lead_2),
+                tgp_lead_6 = lead(tgp, lead_2),
+                tgp_a_lead_6 = lead(tgp_a, lead_2))
+
+#did it work
+ggplot(Month_t) + geom_line(aes(x = date, y = fgp_a)) +
+  geom_line(aes(x = date, y = fgp_a_lead))
+
+# remove empty rows at the bottom
+Month_t <- filter(Month_t, !is.na(cp) | !is.na(cp_lead_6))
+
+#Fix blanks
+blank_d <- select(Day_t, as.Date(date))
+blank_m <- select(Month_t, date)
+
+#reformat non-leads for plotting
+daytplot <- select(Day_t, date:tgp_a) %>%
+  pivot_longer(cols = cp:tgp_a, names_to = "metric", values_to = "value") %>%
+  group_by(metric) %>%
+  mutate(scaled = value/max(value, na.rm = T)) %>%
+  filter(!is.na(scaled))
+
+dcolors <- c("#E63946", "#ffb703", "#A8DBDC", "#457B9D", "#1D3557")
+
+#normalized trends
+daytplot %>%
+  ggplot() +
+  geom_line(aes(x = date, y = scaled, color = metric), size = 1.5) +
+  geom_text(data = filter(daytplot, date == "2019-09-25"), 
+            aes(label = c("cash price", "average cash price", "average front gross", 
+                          "total gross profit", "average total gross"), 
+                x = date, y = scaled), nudge_x = 50, hjust = -.01,  size = 3.5, angle = -50) +
+  scale_x_date(limits = as.Date(c("2016-07-01", "2020-03-01"))) +
+  theme_light() + theme(legend.position = "none", text = element_text(family = "sans")) + scale_color_manual(values = dcolors) +
+  labs(x = "Date", y = "Value", title = "Trend Plot for 5 Important Business Metrics", 
+       subtitle = "Using max scaling and yearly frequency of time-series data") +
+  geom_segment(data = filter(daytplot, date == "2019-09-25"), 
+               aes(x = date, xend = date + 30, y = scaled, yend = scaled, color = metric), 
+               size = 1.5)
+
+
+# wowza
+
+longiplot <- select(Day_t, c(date, tgp_a, tgp_a_lead, tgp_a_lead_6)) %>%
+  pivot_longer(cols = tgp_a:tgp_a_lead_6, names_to = "metric", values_to = "value") %>%
+  group_by(metric) %>%
+  mutate(scaled = value/max(value, na.rm = T)) %>%
+  filter(!is.na(scaled))
+
+longiplot %>%
+  ggplot() +
+  geom_line(aes(x = date, y = scaled, color = metric), size = 1.5) +
+  geom_text(data = filter(daytplot, date == "2016-01-01"), 
+            aes(label = c("tgp 6-month lead", "tgp 3-month lead", "tgp real-time"),
+            x = as.Date(c("2016-01-01", "2016-04-01", "2016-07-01")), y = 0.85), hjust = -.2,  size = 3.5, angle = 45) +
+  scale_x_date(limits = as.Date(c("2016-01-01", "2020-03-01"))) +
+  theme_light() + theme(legend.position = "none") + scale_color_manual(values = dcolors[1:3]) +
+  labs(x = "Date", y = "Value", title = "Trend Plot for Total Gross Profit", 
+       subtitle = "Max scaled and led by 3 and 6 months")
+
+# one more corrgram of our metrics
+corrgram(Day_t, upper.panel = panel.pie)
+
+
+#Lets get some data: from 2016-01-01 to 2020-03-25
 #Start Very Broad
 #QUANDL?
-library(Quandl)
 
+### function dev
+#  we want to use day and month
 
-#OPEC crude oil
-oil<-Quandl(code = "OPEC/ORB", collapse = 'daily', 
-            start_date="2016-01-01", end_date="2020-11-16", force_irregular = TRUE)
-oil<-left_join(blank, oil, by =  c("date" = "Date"))
-
-ggplot(rogue, aes(date, t.s.tgp, color = "LJ")) + geom_line() +
-  geom_line(aes(oil$date-30, 100*oil$Value + 16000, color = "OPEC")) + geom_line()
-cor(rogue$t.s.tgp, oil$Value, use = 'pairwise')
-
-#GM data
-GM <- read.csv("C:/Users/keato/Dropbox/Shop Data/GM.csv")
-GM$Date<-as.Date(GM$Date)
-GM <- left_join(blank, GM, by = c("date" = "Date"))
-GM<-fill(data = GM, dplyr::everything(), .direction = 'down')
-
-
-#again a normalized plot
-ggplot(rogue, aes(date, t.s.tgp, color = "LJ tgp")) + geom_line() + 
-  geom_line(aes(GM$date, 150*GM$Adj.Close + 21000, color = "GM")) + 
-  geom_line(aes(date, t.s.fgp, color = "LJ fgp")) +
-  geom_line(aes(date, t.s.bgp, color = "LJ bgp")) +
-  geom_line(aes(date, .05*t.s.cp, color = "LJ cp"))
-
-
-### function develooppp
-#GM follows LJ, so no luck there
-#Cor just for fun
-cor(GM$Adj.Close, rogue$t.s.tgp, method = 'pearson', use = 'pairwise')
-#Not bad
-#should write function to do this for me when I import data
-range(na.omit(GM$date))
-a<-filter(GM, date>="2020-08-01")
-b<-filter(rogue, date>= "2020-08-01")
-cor(a$Adj.Close, b$t.s.tgp, method = "pearson", use = 'pairwise')
+  
+  #ggplot(Kib.f) + geom_line(
+  #                     aes(x = date, y = x/max(x, na.rm = T), color = "y")) +
+  #  geom_line(aes(x = date, y = cp.a/max(cp.a, na.rm = T), color = "cp.a")) +  ylab("Value") +
+  #  ggtitle(names(data[y]), "vs. fgp.lead")
+# More data
+#Analysis.R
