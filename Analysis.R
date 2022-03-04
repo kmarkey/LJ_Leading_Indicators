@@ -19,10 +19,9 @@
 #source("Tranform.R")
 #Also, we'll just select a few indicators that we think are important to our model
 
+library(Quandl)
 Quandl.api_key("DLPMVwPNyH57sF6Z1iM4")
-source("Tranform.R", echo = FALSE)  ##???
-
-#explore a lil
+source("Tranform.R", echo = FALSE)
 
 #OPEC crude oil
 oil <- Quandl(code = "OPEC/ORB", collapse = 'daily', 
