@@ -1,6 +1,7 @@
 # I use elastic net to select vars as it will adress multicollinearity and actually get rid of some features
-
+#%%
 import pandas as pd
+import os
 
 # evaluate an elastic net model on the dataset
 from numpy import mean
@@ -11,7 +12,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import RepeatedKFold
 from sklearn.linear_model import ElasticNet
 
-
+#%%
 # define model
 model = ElasticNet(alpha=1.0, l1_ratio=0.5)
 

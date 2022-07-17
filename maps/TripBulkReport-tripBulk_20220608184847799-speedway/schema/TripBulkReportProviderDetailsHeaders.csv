@@ -1,0 +1,8 @@
+ProviderId,ProviderType,ProviderDrivingProfile,VehicleWeightClass,ProbeSourceType
+
+Description of fields:
+ProviderId,String,hash of provider id, for anonymity purposes
+ProviderType,String,the provider type
+ProviderDrivingProfile,String,the provider driving profile
+VehicleWeightClass,String,the vehicle weight class
+ProbeSourceType,String,type of sensor such as mobile device or embedded GPS

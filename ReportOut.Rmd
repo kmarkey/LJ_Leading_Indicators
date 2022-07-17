@@ -13,7 +13,11 @@ output:
   html_document:
     toc: yes
 urlcolor: blue
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
+
 ```{r setup}
 library(here)
 library(zoo)
@@ -22,21 +26,22 @@ library(zoo)
 
 ### Project Aim:
 
-From the last 5 years of data, we are trying to find external indicators of a 
-variety of business metrics within the Lee Johnson Auto Family's Kirkland location.
-I will gather a time-dependent economic data and create a model that predicts business 
-performance.
+From the last 5 years of data, we are trying to find external indicators
+of a variety of business metrics within the Lee Johnson Auto Family's
+Kirkland location. I will gather a time-dependent economic data and
+create a model that predicts business performance.
 
 ## Process:
 
 ### 1. Digest a Prepare LJ Data
 
-### 2. Fetch and Prepare Indicators
+### 2. Select Indicators
 
 ### 3. Create 3 Different Models
-  a) Elastic Net
-  b) LS-SVM
-  c) RNN
+
+a)  Elastic Net
+b)  LS-SVM
+c)  RNN
 
 ### 4. Figure Appendix
 
@@ -48,6 +53,21 @@ source("Digest.R")
 # generated on
 today <- Sys.Date()
 
+# last month
+lmonth <- floor_date(floor_date(today, unit = "month") - 1, unit = "month")
+
+# bounds of last month on record
+pmonth <- floor_date(floor_date(max(KDAt$date), unit = "month") - 1, unit = "month")
+pomonth <- ceiling_date(pmonth, unit = "month") - 1
+
+# days behind
+lmonth - pmonth
+
+# report would be made on the 1st of
+repon <- pomonth + 1
+
+# report is for the month of
+repfor <- paste0(month(pomonth, label = TRUE, abbr = FALSE), ", ", year(pmonth))
 ```
 
 ```{r theme setup, include = FALSE, echo = FALSE}
@@ -88,61 +108,51 @@ ljtheme <- function(){
 theme_set(ljtheme())
 ```
 
-
-
 ## 1. Digestion
 
-After receiving LJ data, all other data is fetched from either Quandl, a free market API, or Yahoo Finance for stock data.
+After receiving LJ data, all other data is either requested with a
+Quandl API or scraped from json files with python
 
-This report sould be generated on the **1st of each month**
+This report should be generated on the **1st of each month**
 
-Here's whats new for Lee Johnson as of last month
+Here's whats new for Lee Johnson as of last month.
 
 ```{r LJ New}
-lmonth <- floor_date(floor_date(today, unit = "month") - 1, unit = "month")
-
-###################################################### last full month on record
-pmonth <- floor_date(floor_date(max(KDARaw$date), unit = "month") - 1, unit = "month")
-
-######################################################
-
-KDAt_nm <- KDAt %>% # new month
-  dplyr::filter(date >= pmonth) # most recent month
-
 #### rolling average
 #https://stackoverflow.com/questions/33769770/use-rollapply-and-zoo-to-calculate-rolling-average-of-a-column-of-variables
 
-
-KDAt %>%
-  mutate(group = ifelse(date >= pmonth, 0, # last month
+mgroups <- KDAt %>%
+  mutate(group = ifelse(date >= pmonth & date <= pomonth, 0, # last 6 months
                         ifelse(date >= pmonth - months(1), 1, # month before
                         ifelse(date >= pmonth - months(2), 2,
                         ifelse(date >= pmonth - months(3), 3,
                         ifelse(date >= pmonth - months(4), 4,
                         ifelse(date >= pmonth - months(5), 5,
-                        ifelse(date >= pmonth - months(6), 6, # 6 months
-                               ifelse(date >= pmonth - months(12), 12, 13))))))))) %>% # last year + forever
+                        ifelse(date >= pmonth - months(6), 6, 7)))))))) %>%
+  dplyr::filter(group != 7)# 6 months
+                                # last year + forever
+
+mlabs <- function(x) {
+  paste0(month(pmonth - months(as.numeric(x)), label = TRUE, abbr = FALSE))
+}
+
+mgroups %>% 
   group_by(group) %>%
-  mutate(ycount = n()/as.numeric(diff(range(date)))) %>%
+  mutate(ycount = n()) %>%#/as.numeric(diff(range(date)))) %>%
   summarise(group, ycount) %>%
   distinct() %>%
-  ggplot() + geom_bar(aes(x = factor(group), y = ycount), stat = "identity") +
-  scale_x_discrete(labels = c("All Time", "12 Months", "6 Months", "5 Months", "4 Months",
-                              "3 Months", "2 Months", "Last Month")) +
-  labs(title = "Last Month in Numbers",
-       subtitle = paste("For",today)) +
-  theme_aritra()
-  
-as.numeric(diff(range(KDAt$date)))
-days(range(KDAt$date))
-lubridate::year(day_1_c$date)
-ymd(stop_date)
-
-KDAt_old
+  ggplot() + geom_bar(aes(x = factor(group), y = ycount), 
+                      stat = "identity", fill = lightblue, alpha = 0.6) +
+  geom_label(aes(x = factor(group), y = ycount, label = ycount)) +
+  scale_x_discrete(labels = mlabs, limits = rev) +
+  labs(title = "Raw Sales",
+       y = "Number of Sales",
+       x = "Month")
 
 ```
 
-What do overall trends look like from last month? moving avg?
+Compare to other years
+
 ```{r}
 
 ```
@@ -150,18 +160,23 @@ What do overall trends look like from last month? moving avg?
 ### 2. Summary statistics
 
 ```{r}
-summary(KDA1)
-glimpse(KDA1)
+summary(KDAt)
+glimpse(KDAt)
 ```
 
-#### We have some NA's, or empty spaces, in the data. This could be for a 
-variety of reasons, someone didn't enter in a number, it got lost in translation, 
-or just didn't exist in the first place. Before we deal with these missing values, 
-let's see how much they affect our data. We really only care about NAs in numerical 
-columns, because thats when they could affect the stats we will run later.
+#### We have some NA's, or empty spaces, in the data. This could be for a
+
+variety of reasons, someone didn't enter in a number, it got lost in
+translation, or just didn't exist in the first place. Before we deal
+with these missing values, let's see how much they affect our data. We
+really only care about NAs in numerical columns, because thats when they
+could affect the stats we will run later.
 
 #### We can use logistic regression to tell us how much the NAs might influence
-the data longitudinally. This is probably unnecessary but I'm going to do it anyway.
+
+the data longitudinally. This is probably unnecessary but I'm going to
+do it anyway.
+
 ```{r}
 summary(glm(is.na(Back_Gross_Profit) ~ Date, KDA1, family = 'binomial'))
 summary(glm(is.na(Front_Gross_Profit) ~ Date, KDA1, family = 'binomial'))
@@ -169,17 +184,21 @@ summary(glm(is.na(Total_Gross_Profit) ~ Date, KDA1, family = 'binomial'))
 summary(glm(is.na(Cash_Price) ~ Date, KDA1, family = 'binomial'))
 
 ```
-#### Based on the models, we noticed a significant trend for all the metrics.
-It shouldn't impact analysis too much because we didn't test numeric variables, 
-but its something to keep in mind.
 
-  Generally, we saw more missing Front Gross Profit values and Cash Price values
-  at the end of the data set, and we saw more missing values for Back Gross Profit
-  and Total Gross Profit at the beginning of the data set.
-  
+#### Based on the models, we noticed a significant trend for all the metrics.
+
+It shouldn't impact analysis too much because we didn't test numeric
+variables, but its something to keep in mind.
+
+Generally, we saw more missing Front Gross Profit values and Cash Price
+values at the end of the data set, and we saw more missing values for
+Back Gross Profit and Total Gross Profit at the beginning of the data
+set.
+
 ### 3. Plotting
 
 #### Now, lets look at some quick plots of the data.
+
 ```{r}
 ggplot(KDA1, aes(Date, Front_Gross_Profit)) + geom_point() + geom_smooth()
 ggplot(KDA1, aes(Date, Back_Gross_Profit)) + geom_point() + geom_smooth()
@@ -188,45 +207,53 @@ ggplot(KDA1, aes(Date, Cash_Price)) + geom_point() + geom_smooth()
 ```
 
 #### 
+
 ```{r}
 ggplot(KDA1, aes(x = Date)) + geom_smooth(aes(y = Front_Gross_Profit, col = "front"), se = F) +
   geom_smooth(aes(y = Back_Gross_Profit, col = "back"), se = F) + ylab("") +
   geom_smooth(aes(y = Total_Gross_Profit, col = "total"), se = F) +
   geom_smooth(aes(y = .04*Cash_Price, col = "cash"), se = F) 
 ```
-#### If we hope to do anything with this, we will have to extract these trends. 
+
+#### If we hope to do anything with this, we will have to extract these trends.
+
 To make this easier, lets create a new df for each day.
 
 ### 4. Condensing
+
 ```{r}
-Day<- as.data.frame(seq(as.Date("2016-01-01"), as.Date("2020-11-16"), by="days"))
-colnames(Day)<-c("Date")
-temp<- group_by(KDA1, Date) %>%
-  mutate(sum.fgp = sum(Front_Gross_Profit, na.rm = TRUE)) %>%
-  summarise(sum.fgp, .groups = 'drop') %>%
-  unique()
-Day<-left_join(Day, count(group_by(KDA1, Date)), by = "Date")
-Day<-left_join(Day, temp, by = "Date")
-temp<- group_by(KDA1, Date) %>%
-  mutate(sum.bgp= sum(Back_Gross_Profit, na.rm = TRUE)) %>%
-  summarise(sum.bgp, .groups = 'drop') %>%
-  unique()
-Day<-left_join(Day, temp, by = "Date")
-temp<- group_by(KDA1, Date) %>%
-  mutate(sum.tgp = sum(Total_Gross_Profit, na.rm = TRUE)) %>%
-  summarise(sum.tgp, .groups = 'drop') %>%
-  unique()
-Day<-left_join(Day, temp, by = "Date")
-temp<- group_by(KDA1, Date) %>%
-  mutate(sum.cp = sum(Cash_Price, na.rm = TRUE)) %>%
-  summarise(sum.cp, .groups = 'drop') %>%
-  unique()
-Day<-left_join(Day, temp, by = "Date")
+# Day<- as.data.frame(seq(as.Date("2016-01-01"), as.Date("2020-11-16"), by="days"))
+# colnames(Day)<-c("Date")
+# temp<- group_by(KDA1, Date) %>%
+#   mutate(sum.fgp = sum(Front_Gross_Profit, na.rm = TRUE)) %>%
+#   summarise(sum.fgp, .groups = 'drop') %>%
+#   unique()
+# Day<-left_join(Day, count(group_by(KDA1, Date)), by = "Date")
+# Day<-left_join(Day, temp, by = "Date")
+# temp<- group_by(KDA1, Date) %>%
+#   mutate(sum.bgp= sum(Back_Gross_Profit, na.rm = TRUE)) %>%
+#   summarise(sum.bgp, .groups = 'drop') %>%
+#   unique()
+# Day<-left_join(Day, temp, by = "Date")
+# temp<- group_by(KDA1, Date) %>%
+#   mutate(sum.tgp = sum(Total_Gross_Profit, na.rm = TRUE)) %>%
+#   summarise(sum.tgp, .groups = 'drop') %>%
+#   unique()
+# Day<-left_join(Day, temp, by = "Date")
+# temp<- group_by(KDA1, Date) %>%
+#   mutate(sum.cp = sum(Cash_Price, na.rm = TRUE)) %>%
+#   summarise(sum.cp, .groups = 'drop') %>%
+#   unique()
+# Day<-left_join(Day, temp, by = "Date")
 ```
+
 #### There are 1782 days, with 55 NAs in the mix. Most of them are probably within
-that stretch in April of 2019. We will fix them by imputation. First lets
-take a look at this new df, now with the number of sales per day [n]. The missing
-values will automatically be predicted using a simple linear model (loess).
+
+that stretch in April of 2019. We will fix them by imputation. First
+lets take a look at this new df, now with the number of sales per day
+[n]. The missing values will automatically be predicted using a simple
+linear model (loess).
+
 ```{r}
 summary(Day)
 Day %>%
@@ -242,15 +269,19 @@ ggplot(aes(x = Date)) +
   geom_smooth(aes(y = 1000*n+5000, color = "n sales"), 
               se = F, method = 'loess') + ylab("")
 ```
+
 ### 5. Imputation
 
 #### I've chosen to impute the mssing values so we can get a complete df that we
-can run through functions and expect a complete output. To do this, we can use a 
-variety of methods. I've chosen to use predictive mean matching, which uses a
-kind of regression that builds relationships around the mean of each variable.
-Again, there are many ways to do this and this might not be the best one. First,
-we train the algorithm 20 times [m = 20], and we get its best guess at what the 
-missing values would be according to pmm. We can easily change the method later too.
+
+can run through functions and expect a complete output. To do this, we
+can use a variety of methods. I've chosen to use predictive mean
+matching, which uses a kind of regression that builds relationships
+around the mean of each variable. Again, there are many ways to do this
+and this might not be the best one. First, we train the algorithm 20
+times [m = 20], and we get its best guess at what the missing values
+would be according to pmm. We can easily change the method later too.
+
 ```{r, include=FALSE}
 m<-'pmm'
 junk<-capture.output(imp <- mice(data = Day, m = 20, method = c("",m,m,m,m,m)))
@@ -269,10 +300,14 @@ ggplot(aes(x = Date)) +
   geom_smooth(aes(y = 1000*n+5000, color = "n sales"), 
               se = F, method = 'loess') + ylab("")
 ```
+
 #### Now, since we have data for each day, we can do some timeries analysis for
-all of our metrics. [freq = 365] because we have 365 observations per year.
-Remember here, these values are taken from the sum of that value every day.
-From, these plots, we really just need to pay attention to the trend.
+
+all of our metrics. [freq = 365] because we have 365 observations per
+year. Remember here, these values are taken from the sum of that value
+every day. From, these plots, we really just need to pay attention to
+the trend.
+
 ```{r}
 b<-decompose(ts(Day.full$sum.bgp, frequency =365))
 plot(b) + title("Back Gross", line = -.5)
@@ -285,8 +320,11 @@ plot(c) + title("Cash Price", line = -.5)
 n<-decompose(ts(Day.full$n, frequency =365))
 plot(n) + title("N Sold", line =  -.5)
 ```
+
 #### Looks nice and informative. Now, lets make sure all our data is in the standard
+
 style so we can easily compare it to other economic trends.
+
 ```{r}
 #dummy for joining
 time.seq<-seq.Date(from = as.Date("2016-01-01"), to = as.Date("2020-11-16"), by = 'day')
@@ -302,16 +340,20 @@ rogue<-left_join(blank, rogue)
 #Finally, a very informative plot of our trends so far
 plot(rogue)
 ```
+
 #### Now, we are ready to test this df against some possible leading indicators.
-  As I understand it, leading indicators will show the current trend some number 
-  of days, weeks, or even months. So instead  of just joining two df by date against
-  each other and grabbing the correlation from there, we'll want to modulate how far
-  in the past (or the future) we offset one df. Ideally, we would check the correlation
-  at a number of offset points, to  find the highest value we can get from the data.
-  I need to design a function to compile each new df and put it into a table of 
-  correlations with LJ data.
+
+As I understand it, leading indicators will show the current trend some
+number of days, weeks, or even months. So instead of just joining two df
+by date against each other and grabbing the correlation from there,
+we'll want to modulate how far in the past (or the future) we offset one
+df. Ideally, we would check the correlation at a number of offset
+points, to find the highest value we can get from the data. I need to
+design a function to compile each new df and put it into a table of
+correlations with LJ data.
 
 ## Part 2.
+
 ```{r}
 
 
@@ -321,12 +363,3 @@ plot(rogue)
 
 
 ```
-
-
-
-
-
-
-
-
-
