@@ -1,0 +1,17 @@
+# ignore maps projects
+maps/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# python cache
+__pycache__/
+
+# R files
+.Rdata
+.Rapp.history
+.RDataTmp
+
+.Rhistory
+
+*.log
