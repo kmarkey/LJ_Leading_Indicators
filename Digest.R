@@ -67,8 +67,9 @@ library(ggplot2)
 library(tidyr)
 library(readr)
 
-Quandl.api_key("DLPMVwPNyH57sF6Z1iM4")
-
+# read in keys
+keys <- read_delim("keys/keys.txt", trim_ws = TRUE)
+Quandl.api_key(as.character(keys$key[4]))
 # From Quandl, monthly observations don't come on the 1st
 # Lag months and then filter to interval of nrow(month)
 
@@ -98,7 +99,7 @@ NGF1 <- quandl_lag("CHRIS/CME_QG1", x = "Settle", prefix = "ngf1", search_bottom
 exam(NGF1, cor_max)
 
 # E-mini Natural Gas Futures, Continuous Contract #2 (QG2)
-NGF2 <- quandl_lag("CHRIS/CME_QG2", x = "Volume", prefix = "ngf2",search_bottom, search_top, blank_m)
+NGF2 <- quandl_lag("CHRIS/CME_QG2", x = "Volume", prefix = "ngf2", search_bottom, search_top, blank_m)
 exam(NGF2, cor_max)
 
 # 90 Day Bank Accepted Bills Futures, Continuous Contract #1 (IR1) (Front Month)
@@ -161,20 +162,20 @@ exam(fred, cor_max)
 #============================== stocks =========================================
 stock_list <- list.files(path = "data/in/stocks", full.names = TRUE)
 
-GM <- read_csv("data/in/stocks/GM.csv") %>%
-  rename(GM = close)
-FB <- read_csv("data/in/stocks/F.csv") %>%
-  rename(FB = close)
-AN <- read_csv("data/in/stocks/AN.csv") %>%
-  rename(AN = close)
-TSLA <- read_csv("data/in/stocks/TSLA.csv") %>%
-  rename(TSLA = close)
+GM <- read_csv("data/in/stocks/GM.csv")
+Ford<- read_csv("data/in/stocks/F.csv")
+AN <- read_csv("data/in/stocks/AN.csv")
+TSLA <- read_csv("data/in/stocks/TSLA.csv")
+Hyundai <- read_csv("data/in/stocks/HYMTF.csv")
+Mazda <- read_csv("data/in/stocks/MZDAY.csv")
 
 stocks <- blank_m %>%
   left_join(GM, by = "date") %>% 
   left_join(FB, by = "date") %>%
   left_join(AN, by = "date") %>%
   left_join(TSLA, by = "date") %>%# arranges high to low
+  # left_join(Hyundai, by = "date") %>%
+  left_join(Mazda, by = "date") %>%
   dplyr::mutate(across(is.numeric, .fns = list(raw = ~.,
                                                lag1 = ~ lag(., 1), 
                                                lag2 = ~ lag(., 2),
@@ -210,6 +211,7 @@ scaling <- function(x) { # normalization function
   return((x - min(x))/(max(x) - min(x)))
 }
 
+
 complete_dirty <- left_join(dplyr::select(month, date, n),  # combine all to 1 df
                       oil, by = "date") %>%
   left_join(NGF1, by = "date") %>%
@@ -244,6 +246,7 @@ complete_cor <- complete_dirty %>%
 
 # select for co  >= 0.25
 feature_dict <- complete_cor[complete_cor['n',] >= cor_max | complete_cor['n',] <= -cor_max, 'n']
+
 
 # select features in features dict
 features <- dplyr::select(complete_dirty, all_of(names(feature_dict))) %>%

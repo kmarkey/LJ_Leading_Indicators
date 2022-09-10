@@ -10,21 +10,26 @@ import requests
 import os
 import pandas as pd
 from alpha_vantage.timeseries import TimeSeries
-import time
 import pandas_datareader as pdr # access fred
 from datetime import datetime
 import time
 
 os.chdir('C:\\Users\\keato\\Documents\\LocalRStudio\\LJ_Leading_Indicators')
 
-def get_keys(path = "."):
-    alphavantage_key = 'NPN0X4RFKGIJ5XU5'
-    fred_key = '5fba26fa88dc7609cd9d314910562690'
+os.getcwd()
+
+def get_keys(path = "keys/keys.txt"):
+    keys = {}
+    with open(os.path.join(os.getcwd(), path)) as f:
+        for line in f:
+           k, v = line.split(",")
+           keys[k] = v
+    alphavantage_key = keys["alphavantage_key"]
+    fred_key = keys["fred_key"]
     return alphavantage_key, fred_key
 # Your key here
 # key = 'yourkeyhere'
 # https://github.com/RomelTorres/alpha_vantage
-
 avkey, fredkey = get_keys()
 
 def get_search_bounds(path = "."): # willeventually reference csv file
@@ -35,13 +40,14 @@ def get_search_bounds(path = "."): # willeventually reference csv file
 search_bottom, search_top = get_search_bounds()
 
 
-def get_ticker_csv(ticker, key, lower_bound = "2015-01-01", upper_bound = "2020-02-29", save = True):
+def get_ticker_csv(ticker, lower_bound = "2015-01-01", upper_bound = "2020-02-29", key = avkey, save = True):
     ts = TimeSeries(key = key, output_format = "pandas")
     data, metadata = ts.get_monthly(symbol = ticker)
     data = data.sort_index().loc[lower_bound:upper_bound]
     data = data.reset_index()
-    data = data.rename({'4. close': 'close'}, axis='columns')
-    data = data[['date', 'close']]
+    data = data.rename({'4. close': '{0}'.format(ticker), 
+                        '5. volume': '{0}_v'.format(ticker)}, axis='columns')
+    data = data[['date', '{0}'.format(ticker), '{0}_v'.format(ticker)]]
     data['date'] = pd.to_datetime(data.date).dt.to_period('M').dt.to_timestamp()
 #==============================================================================
     if save == True:
@@ -50,21 +56,31 @@ def get_ticker_csv(ticker, key, lower_bound = "2015-01-01", upper_bound = "2020-
         # save
         data.to_csv(filename, index = False)
         
-    return print(savename, "saved.\n")
-    return print(savename, ", size", len(data), ":", len(data.columns), ", saved \n")
+    return print(savename,", size", len(data), ":", len(data.columns), ", saved \n")
 
+# GM
+get_ticker_csv("GM", search_bottom, search_top, save = True)
 
-get_ticker_csv("GM", avkey, search_bottom, search_top, save = True)
+# Ford
+get_ticker_csv("F", search_bottom, search_top, save = True)
 
-get_ticker_csv("TSLA", avkey, search_bottom, search_top, save = True)
+# Tesla
+get_ticker_csv("TSLA", search_bottom, search_top, save = True)
 
-get_ticker_csv("F", avkey, search_bottom, search_top, save = True)
 
 # get_ticker_csv("CVNA", avkey, search_bottom, search_top, save = True) stock is too new
 
-get_ticker_csv("AN", avkey, search_bottom, search_top, save = True)
+# Autonation
+get_ticker_csv("AN", search_bottom, search_top, save = True)
 
-# sleep(60 * 5)
+# Hyundai for kia, no data before 2016?????
+# get_ticker_csv("HYMTF", "2014-01-01", search_top, save = True)
+
+time.sleep(60) # call rate is 5/min
+
+# Mazda
+get_ticker_csv("MZDAY", search_bottom, search_top, save = True)
+
 
 # get_ticker_csv("SP500", avkey, search_bottom, search_top, save = True)
 
@@ -82,7 +98,11 @@ series = {
     'new_units': 'WABPPRIVSA',
     'altsales': 'ALTSALES',
     'totalsa': 'TOTALSA',
-    'ltrucksa': 'LTRUCKSA'
+    'ltrucksa': 'LTRUCKSA',
+    "miles": "TRFVOLUSM227NFWA",
+    "tmaturity": "T10Y2YM",
+    "carcpi": "CUSR0000SETA02",
+    "newhouses": "MSACSR"
     }
 
 # reverse dictionary
@@ -109,17 +129,15 @@ def save_fred_data(data):
     
 save_fred_data(df)
     
-len(df.columns)
 
 #==============================================================================
 # get google trends data
 # https://lazarinastoy.com/the-ultimate-guide-to-pytrends-google-trends-api-with-python/#:~:text=Google%20Trends%20is%20a%20public,trending%20results%20from%20google%20trends.
 
-import pandas as pd                        
 from pytrends.request import TrendReq
 pytrend = TrendReq(requests_args=time.sleep(10), retries=5)
 # requests_args=time.sleep(1)
-kw_list=['GM', 'car', 'car sales near me']
+kw_list=['GM', 'car', 'car sales near me', 'best new cars']
 
 
 def get_trends(word_list, lower_bound, upper_bound):
@@ -140,7 +158,7 @@ def get_trends(word_list, lower_bound, upper_bound):
     return result
     # result.to_csv('search_trends.csv')
 
-result = get_trends(kw_list, lower_bound = "2015-01-01", upper_bound= "2020-03-05")
+result = get_trends(kw_list, lower_bound = "2015-01-01", upper_bound= "2020-03-05") # weird behavior
 
 def save_google_data(data):
     filename = os.path.join(os.getcwd(), "data/in/trends.csv")
