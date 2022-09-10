@@ -1,5 +1,5 @@
 # ignore maps projects
-maps
+**/maps
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
@@ -17,4 +17,4 @@ __pycache__/
 *.log
 
 # keys folder
-keys
+**/keys
