@@ -1,7 +1,9 @@
-################################################################################
+# this script compiles all csv data and administers a feature correlation cutoff cor_max 
+# and filters features what will allow us to see 3  months into the future
+
 # correlation function
-# to look at correlation for number of sales n
-exam <- function(data, interval = "month", cor = 0.25) {
+
+exam <- function(data, threshold = 0.25, interval = "month") {
 
   if (interval == 'month'){
     data <- left_join(month, data, by = "date") %>%
@@ -13,215 +15,257 @@ exam <- function(data, interval = "month", cor = 0.25) {
       dplyr::select(n) %>%
       filter(n != 1) %>%
       arrange(desc(abs(n)))
-    pass <- filter(out, abs(n) >= cor)
-    print(out)
+    pass <- filter(out, abs(n) >= threshold)
+    print(pass)
     
   # for now print out all
   }
-  else {print("Invalid Date Format")}
 }
 
-# takes df with date and makes 4 lagged new columns
-past <- function(data, x = Value) {
-  name <- deparse(substitute(data))
-  df <- data %>%
-    dplyr::select(date, x = {{x}})
-  
-  result <- tibble(date = head(df$date, nrow(month)),
-                   lag12 = df$x[13:(nrow(month) + 12)], # lag 12 months
-                   lag6 = df$x[7:(nrow(month) + 6)], # lag 6 months
-                   lag3 = df$x[4:(nrow(month) + 3)], # 3 months
-                   lag2 = df$x[3:(nrow(month) + 2)], # 2 months
-                   lag1 = df$x[2:(nrow(month) + 1)],
-                   raw = head(df$x, nrow(month))) # 1 month lag
-  #colnames(result) <- paste(name, colnames(result), sep = "_") # change names
-  result <- dplyr::rename_with(result, ~ paste(name, .x, sep = "_"),
-                               .cols = where(is.numeric))
-  assign(paste(name, "lgd", sep = "_"), result, envir = .GlobalEnv, inherits = FALSE)
+
+quandl_lag <- function(quandl_code, x, prefix, lower_bound, upper_bound, join_key) {
+  df <- Quandl(code = quandl_code, collapse = 'monthly', 
+               start_date = lower_bound, end_date = upper_bound) %>%
+    dplyr::summarise(date = floor_date(Date, unit = "month"), {{prefix}} := .data[[x]]) %>%
+
+    # lag snap
+    right_join(join_key, by = "date") %>% # arranges high to low
+    dplyr::mutate(across({{prefix}}, .fns = list(raw = ~.,
+                                        lag1 = ~ lead(., 1), 
+                                        lag2 = ~ lead(., 2),
+                                        lag3 = ~ lead(., 3),
+                                        lag6 = ~ lead(., 6),
+                                        lag12 = ~ lead(., 12)),
+                         .names = "{.col}_{.fn}"), 
+                  .keep = "unused")
+  return(df)
+  # assign(paste({{name}}, "lgd", sep = "_"), result, envir = .GlobalEnv, inherits = FALSE)
 }
-################################################################################
-# ideas
+
+
+#-------------------------------------------------------------------------------
 # Home sales
 # Consumer confidence index
 # Interest Rates
 # appointments
 # Total vehicle sales retail SAAR (check between)
 # SAAR in washington, King/Snohomish, cross-sell
-
-# Online searching data, website hits?
+# Google "car" searches
 
 # Natural Rate of unemployment (short-term)
 
 # work in python to download online data
 
-setwd("~/LocalRStudio/LJ_Leading_Indicators")
+setwd("~/LocalRStudio/LJ_Leading_Indicators/")
 
-source("Tranform.R", echo = FALSE)
+source("Transform.R", echo = FALSE)
 
 library(Quandl)
 library(dplyr)
 library(tidyselect)
 library(ggplot2)
 library(tidyr)
+library(readr)
 
 Quandl.api_key("DLPMVwPNyH57sF6Z1iM4")
 
 # From Quandl, monthly observations don't come on the 1st
 # Lag months and then filter to interval of nrow(month)
-# capture features with cor > +-0.25
 
-search_bottom <- min_date
-search_top <- floor_date(max(KDAt$date), unit = "month") -1
+# read in month
+month <- read_csv("data/out/month.csv")
 
-blank_m <- tibble(date = seq.Date(from = min_date, to = stop_date, by = "month"))
-#OPEC crude oil
-oil <- Quandl(code = "OPEC/ORB", collapse = 'monthly', 
-              start_date = search_bottom, end_date = search_top) %>%
-  mutate(date = floor_date(Date, unit = "month")) %>%
-  right_join(blank_m, by = "date") # arranges high to low
-past(oil, Value)
-exam(oil_lgd)
+# create date bounaries
+search_bottom <- min(month$date) - years(1) # from month
+search_bottom
+search_top <- ceiling_date(max(month$date), unit = "month") - 1
+search_top
 
-#E-mini Natural Gas Futures, Continuous Contract #1 (QG1) (Front Month)
-NGF1 <- Quandl("CHRIS/CME_QG1", collapse = 'monthly', start_date = search_bottom, end_date = search_top) %>%
-  mutate(date = floor_date(as.Date(Date), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(NGF1, Settle)
-exam(NGF1_lgd)
 
-#E-mini Natural Gas Futures, Continuous Contract #2 (QG2)
-NGF2 <- Quandl("CHRIS/CME_QG2", collapse = 'monthly', start_date = search_bottom, end_date = search_top) %>%
-  mutate(date = floor_date(as.Date(Date), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(NGF2, Volume)
-exam(NGF2_lgd)
+# set correlation threshold
+cor_max <- 0.20
 
-#90 Day Bank Accepted Bills Futures, Continuous Contract #1 (IR1) (Front Month)
-IR1 <- Quandl("CHRIS/ASX_IR1", collapse = 'monthly', start_date = search_bottom, end_date = search_top) %>% 
-  mutate(date = floor_date(as.Date(Date), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(IR1, `Previous Settlement`)
-exam(IR1_lgd)
+# blank df for join
+blank_m <- tibble(date = seq.Date(from = search_bottom, to = search_top, by = "month"))
 
-#House Price Indices - Seattle-Tacoma-Bellevue WA
-HPISTB <- Quandl("FMAC/HPI_42660", collapse = 'monthly', start_date = search_bottom, end_date = search_top) %>% 
-  mutate(date = floor_date(as.Date(Date), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(HPISTB, `SA Value`)
-exam(HPISTB_lgd)
+#=============================select quandl series==============================
+# OPEC crude oil
+oil <- quandl_lag("OPEC/ORB", x = "Value", prefix = "oil", search_bottom, search_top, blank_m)
+exam(oil, cor_max)
 
-#HPI - Washington State
-HPIWA <- Quandl("FMAC/HPI_WA", collapse = 'monthly', start_date = search_bottom, end_date = search_top) %>% 
-  mutate(date = floor_date(as.Date(Date), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(HPIWA, `SA Value`)
-exam(HPIWA_lgd)
+# E-mini Natural Gas Futures, Continuous Contract #1 (QG1) (Front Month)
+NGF1 <- quandl_lag("CHRIS/CME_QG1", x = "Settle", prefix = "ngf1", search_bottom, search_top, blank_m)
+exam(NGF1, cor_max)
 
-#15-Year Fixed Rate Mortgage Average in the United States
-FRM15 <- Quandl("FMAC/15US", collapse = 'monthly', start_date = search_bottom, end_date = search_top) %>% 
-  mutate(date = floor_date(as.Date(Date), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(FRM15)
-exam(FRM15_lgd)
+# E-mini Natural Gas Futures, Continuous Contract #2 (QG2)
+NGF2 <- quandl_lag("CHRIS/CME_QG2", x = "Volume", prefix = "ngf2",search_bottom, search_top, blank_m)
+exam(NGF2, cor_max)
 
-#30-Year Fixed Rate Mortgage Average in the United States
-FRM30 <- Quandl("FMAC/30US", collapse = 'monthly', start_date = search_bottom, end_date = search_top) %>% 
-  mutate(date = floor_date(as.Date(Date), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(FRM30)
-exam(FRM30_lgd)
+# 90 Day Bank Accepted Bills Futures, Continuous Contract #1 (IR1) (Front Month)
+IR1 <- quandl_lag("CHRIS/ASX_IR1", x = "Previous Settlement", prefix = "bf90", search_bottom, search_top, blank_m)
+exam(IR1, cor_max)
 
-#5/1-Year Adjustable Rate Mortgage Average in the United States
-ARM5 <- Quandl("FMAC/5US", collapse = 'monthly', start_date = search_bottom, end_date = search_top) %>% 
-  mutate(date = floor_date(as.Date(Date), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(ARM5)
-exam(ARM5_lgd)
+# House Price Indices - Seattle-Tacoma-Bellevue WA
+HPISTB <- quandl_lag("FMAC/HPI_42660", x = "SA Value", prefix = "lhpi", search_bottom, search_top, blank_m)
+exam(HPISTB, cor_max)
 
-# Consumer Confidence Index full list https://data.oecd.org/leadind/consumer-confidence-index-cci.htm
-CCI <- read_csv("data/ConsumerConfidenceUSA.csv") # fetch with python
-CCI <- CCI %>%
-  mutate(date = str_c(as.character(`TIME`), '-01')) %>%
-  mutate(date = floor_date(as.Date(date, format = "%Y-%m-%d"), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(CCI)
-exam(CCI_lgd)
+# HPI - Washington State
+HPIWA <- quandl_lag("FMAC/HPI_WA", x = "SA Value", prefix = "shpi", search_bottom, search_top, blank_m)
+exam(HPIWA, cor_max)
 
-# SAAR light vehicle sales https://fred.stlouisfed.org/series/ALTSALES
-SAAR1 <- read_csv("data/ALTSALES.csv")
-SAAR1 <- SAAR1 %>%
-  mutate(date = floor_date(as.Date(DATE), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(SAAR1, ALTSALES)
-exam(SAAR1_lgd)
+# 15-Year Fixed Rate Mortgage Average in the United States
+FRM15 <- quandl_lag("FMAC/15US", x = "Value", prefix = "mfrm", search_bottom, search_top, blank_m)
+exam(FRM15, cor_max)
 
-# Total Vehicle Sales https://fred.stlouisfed.org/series/TOTALSA
-SAAR2 <- read_csv("data/TOTALSA.csv") 
-SAAR2 <- SAAR2 %>%
-  mutate(date = floor_date(as.Date(DATE), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(SAAR2, TOTALSA)
-exam(SAAR2_lgd)
+# 30-Year Fixed Rate Mortgage Average in the United States
+FRM30 <- quandl_lag("FMAC/30US", x = "Value", prefix = "lfrm", search_bottom, search_top, blank_m)
+exam(FRM30, cor_max)
 
-#Light Trucks https://fred.stlouisfed.org/series/LTRUCKSA
-SAAR3 <- read_csv("data/LTRUCKSA.csv")
-SAAR3 <- SAAR3 %>%
-  mutate(date = floor_date(as.Date(DATE), unit = "month")) %>%
-  right_join(blank_m, by = "date")
-past(SAAR3, LTRUCKSA)
-exam(SAAR3_lgd)
+# 5/1-Year Adjustable Rate Mortgage Average in the United States
+ARM5 <- quandl_lag("FMAC/5US", x = "Value", prefix = "sfrm", search_bottom, search_top, blank_m)
+exam(ARM5, cor_max)
 
-######## add appts here #########
 
-######## read in scraped data from python ##########
+#============================ Fred data and stocks from python =================
+# stock_names <- str_extract(stock_list, "[A-Z]+")
+# econ <- list.files(path = "data/in/stocks", full.names = TRUE) %>%
+#   lapply(read_csv) %>%
+#   bind_cols
+#   right_join(blank_m, by = "date") %>% # arranges high to low
+#   dplyr::mutate(across(is.numeric, .fns = list(raw = ~.,
+#                                                lag1 = ~ lag(., 1), 
+#                                                lag2 = ~ lag(., 2),
+#                                                lag3 = ~ lag(., 3),
+#                                                lag6 = ~ lag(., 6),
+#                                                lag12 = ~ lag(., 12)),
+#                        .names = "{.col}_{.fn}"), 
+#                 .keep = "unused")
+# 
+# exam(econ)
+
+fred <- read_csv("data/in/fred.csv")
+
+fred <- fred %>%
+  right_join(blank_m, by = "date") %>% # arranges high to low
+  dplyr::mutate(across(is.numeric, .fns = list(raw = ~.,
+                                               lag1 = ~ lag(., 1), 
+                                               lag2 = ~ lag(., 2),
+                                               lag3 = ~ lag(., 3),
+                                               lag6 = ~ lag(., 6),
+                                               lag12 = ~ lag(., 12)),
+                       .names = "{.col}_{.fn}"), 
+                .keep = "unused")
+
+exam(fred, cor_max)
+
+#============================== stocks =========================================
+stock_list <- list.files(path = "data/in/stocks", full.names = TRUE)
+
+GM <- read_csv("data/in/stocks/GM.csv") %>%
+  rename(GM = close)
+FB <- read_csv("data/in/stocks/F.csv") %>%
+  rename(FB = close)
+AN <- read_csv("data/in/stocks/AN.csv") %>%
+  rename(AN = close)
+TSLA <- read_csv("data/in/stocks/TSLA.csv") %>%
+  rename(TSLA = close)
+
+stocks <- blank_m %>%
+  left_join(GM, by = "date") %>% 
+  left_join(FB, by = "date") %>%
+  left_join(AN, by = "date") %>%
+  left_join(TSLA, by = "date") %>%# arranges high to low
+  dplyr::mutate(across(is.numeric, .fns = list(raw = ~.,
+                                               lag1 = ~ lag(., 1), 
+                                               lag2 = ~ lag(., 2),
+                                               lag3 = ~ lag(., 3),
+                                               lag6 = ~ lag(., 6),
+                                               lag12 = ~ lag(., 12)),
+                       .names = "{.col}_{.fn}"), 
+                .keep = "unused")
+
+exam(stocks, cor_max)
+
+#=============================== google trends =================================
+trends <- read_csv("data/in/trends.csv")
+
+trends <- blank_m %>%
+  left_join(trends, by = "date") %>% # arranges high to low
+  dplyr::mutate(across(is.numeric, .fns = list(raw = ~.,
+                                               lag1 = ~ lag(., 1), 
+                                               lag2 = ~ lag(., 2),
+                                               lag3 = ~ lag(., 3),
+                                               lag6 = ~ lag(., 6),
+                                               lag12 = ~ lag(., 12)),
+                       .names = "{.col}_{.fn}"), 
+                .keep = "unused")
+
+######## add appts here? #########
+
+
+
+#=============================== joins =========================================
 
 scaling <- function(x) { # normalization function
-  (x - min(x))/(max(x) - min(x))
+  return((x - min(x))/(max(x) - min(x)))
 }
 
 complete_dirty <- left_join(dplyr::select(month, date, n),  # combine all to 1 df
-                      NGF1_lgd, by = "date") %>%
-  left_join(NGF2_lgd, by = "date") %>%
-  left_join(IR1_lgd, by = "date") %>%
-  left_join(HPISTB_lgd, by = "date") %>%
-  left_join(HPIWA_lgd, by = "date") %>%
-  left_join(FRM15_lgd, by = "date") %>%
-  left_join(FRM30_lgd, by = "date") %>%
-  #add more later
-  #######################################
-
-  left_join(ARM5_lgd, by = "date") %>%
+                      oil, by = "date") %>%
+  left_join(NGF1, by = "date") %>%
+  left_join(NGF2, by = "date") %>%
   
-  mutate(across(is.numeric, ~(scaling(.) %>% as.vector))) # apply scaling
+  left_join(IR1, by = "date") %>%
+  left_join(HPISTB, by = "date") %>%
+  left_join(HPIWA, by = "date") %>%
+  left_join(FRM15, by = "date") %>%
+  left_join(FRM30, by = "date") %>%
+  left_join(ARM5, by = "date") %>%
+  
+  # econ
+  left_join(fred, by = "date") %>%
+  left_join(stocks, by = "date") %>%
+  left_join(trends, by = "date") %>%
+  
+  # google results
+  
+  # add more later
+  #######################################
+  tibble::rowid_to_column("month") %>%
+  dplyr::select(-date)
+  # mutate(across(is.numeric, ~ scaling(.))) # apply scaling with sklearn
 
-######################################### write out
-# write_csv(complete, "data/complete.csv")
+#============================ wide filter to cor ===============================
+write_csv(complete_dirty, "data/out/complete.csv")
 
-# create feature dictionary selected cor >= 0.25
-complete_cor <- dplyr::select(complete_dirty, -ends_with("raw"), -date) %>%
+# change date to month key col
+complete_cor <- complete_dirty %>%
   cor()
 
 # select for co  >= 0.25
-feature_dict <- complete_cor[complete_cor['n',] >= 0.25 | complete_cor['n',] <= -0.25, 'n']
+feature_dict <- complete_cor[complete_cor['n',] >= cor_max | complete_cor['n',] <= -cor_max, 'n']
 
 # select features in features dict
-features <- dplyr::select(complete_dirty, all_of(names(feature_dict)))
-feature_dict
+features <- dplyr::select(complete_dirty, all_of(names(feature_dict))) %>%
+  dplyr::select(-ends_with(c("_raw", "_lag1", "_lag2")))
 
-######################################### write out
-#write_csv(features, "data/features.csv")
 
-#################### explore ideas #############################################
-library(corrplot)
+#==================================== write out ================================
+write_csv(features, "data/out/features.csv")
 
-corrplot(complete_cor, method = "color")
-corrplot(cor(features), method = "color")
-
-complete_dirty %>%
-  pivot_longer(cols = c(-n, -date), names_to = "tick", values_to = "value") %>%
-  ggplot() + geom_line(aes(x = date, y = n), color = "blue") +
-  geom_line(aes(x = date, y = value, group = tick, color = tick), alpha = 0.2) +
-  guides(color = "none")
-
-ggplot(complete_dirty) + geom_line(aes(x = date, y = n)) + 
-  geom_line(aes(x = date, y = ARM5_raw, color = "var"))
+# #################### explore ideas #############################################
+# library(corrplot)
+# 
+# corrplot(complete_cor, method = "color")
+# corrplot(cor(features), method = "color")
+# 
+# complete_dirty %>%
+#   dplyr::select(ends_with("_raw"), n, date) %>%
+#   pivot_longer(cols = c(-n, -date), names_to = "tick", values_to = "value") %>%
+#   ggplot() + geom_line(aes(x = date, y = n), color = "blue") +
+#   geom_line(aes(x = date, y = value, group = tick, color = tick), alpha = 0.4) +
+#   guides(color = "none") +
+#   theme_minimal()
+# 
+# ggplot(complete_dirty) + geom_line(aes(x = date, y = n)) + 
+#   geom_line(aes(x = date, y = ARM5_raw, color = "var"))
