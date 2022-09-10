@@ -3,3 +3,4 @@ mysqlroot,4K9ZJl@rHE2Y
 alphavantage_key,NPN0X4RFKGIJ5XU5
 fred_key,5fba26fa88dc7609cd9d314910562690
 quandl_key,DLPMVwPNyH57sF6Z1iM4
+poopee
