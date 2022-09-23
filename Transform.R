@@ -4,18 +4,17 @@
 # How can we ingest lots more data?
 # Local data?
 
-# Summed up values per day
-# Prepared a month, 2-month, quarter, and 2-quarter lead
+# Summed up values per day?
 
 
-# find max_date
+# find covid cutoff
 
 library(dplyr)
 library(readr)
 library(stringr)
 library(lubridate)
 library(mice)
-#------------------------- warnings suppressed ---------------------------------
+#------------------------- first pass ---------------------------------
 options(warn = -1)
 
 # set dir
@@ -50,23 +49,24 @@ KDAt <- mutate(KDAt, across(c(front_gross_profit,
 
 #----------------------- create model year variable ----------------------------
 # highest possible model year = current year + 1, assuming age <100
-max_year <- as.numeric(substr(year(Sys.Date()) + 1, 3, 4))
+max_model_year <- as.numeric(substr(year(Sys.Date()) + 1, 3, 4))
 
 KDAt <- KDAt %>%
   mutate(caryear = as.numeric(
     ifelse(str_length(caryear) == 1, str_c("200", caryear), 
-                       ifelse(str_length(caryear) == 2 & caryear > max_year, str_c("19", caryear),
+                       ifelse(str_length(caryear) == 2 & caryear > max_model_year, str_c("19", caryear),
                               str_c("20", caryear))))
   )
 
+#--------------------------------- date bounds ---------------------------------
 # current data bounds specs
 min_date <- min(KDAt$date) - 365 # lowest possible date including 12-month lag
 
 # stop date for training split
 end_date <- as.Date("2020-03-26") # pre covid
-# Feb is the last full month
-max_date <- ceiling_date(end_date - months(1), unit = "month")
 
+# Feb is the last full month
+covid_cutoff <- ceiling_date(end_date - months(1), unit = "month") -1
 
 # check formats
 classcheck <- class(KDAt$date) == "Date" & class(KDAt$front_gross_profit) == "numeric"
@@ -78,7 +78,6 @@ KDAt <- KDAt %>%
 #------------------ plots + summaries have been moved --------------------------
 
 # Roll up by day and by day per sale
-# lots of missing days
 # daily sums
 day_sum <- group_by(KDAt, date) %>%
   mutate(fgp = sum(front_gross_profit, na.rm = T),
@@ -112,14 +111,6 @@ day_1_c <- complete(imp)
 
 missingcheck <- sum(is.na(day_1_c)) == 0L
 
-# create lags for day
-# lead y as opposed to lagging x
-lead_1 <- 30 # 1 month
-lead_2 <- 60 # 2 months
-lead_3 <- 90 # 3 months
-lead_6 <- 180 # 6 months
-lead_12 <- 360 # 12 months
-
 # add lead for 6 months?
 day_1_c <- left_join(
   tibble(date = seq.Date(from = min_date, 
@@ -135,7 +126,6 @@ cat("Completed imputation on", sum(is.na(day$cp_a)), "values of cp_a\n")
 # no imputation
 
 month_sum <- KDAt %>%
-  dplyr::filter(date < max_date) %>% # stop at max_date
   group_by(date = floor_date(date, unit = "month")) %>%
   mutate(fgp = sum(front_gross_profit, na.rm = T),
          tgp = sum(total_gross_profit, na.rm = T),
@@ -147,7 +137,6 @@ month_sum <- KDAt %>%
 
 # monthly average per sale
 month_avg <- KDAt %>%
-  dplyr::filter(date < max_date) %>% # stop at max_date
   group_by(date = floor_date(date, unit = "month")) %>%
   mutate(fgp_a = sum(front_gross_profit, na.rm = T)/n(),
          tgp_a = sum(total_gross_profit, na.rm = T)/n(),
@@ -159,14 +148,25 @@ month_avg <- KDAt %>%
 month_partial <- left_join(month_sum, month_avg, by = "date")
 
 # select important vars and stop date for COVID
-month <- filter(month_partial, date <= max_date) %>% ##### change date in future v.s
+month_pre <- filter(month_partial, date <= covid_cutoff) %>% ##### change date in future v.s
   dplyr::select(date, n, tgp_a, cp_a) %>%
   arrange(date)
 
+month_post <- filter(month_partial, date > covid_cutoff) %>% ##### change date in future v.s
+  dplyr::select(date, n, tgp_a, cp_a) %>%
+  arrange(date)
+
+month <- month_partial %>% 
+  dplyr::select(date, n, tgp_a, cp_a) %>%
+  arrange(date)
+
+
 #----------------------------- seasonal adjustment -----------------------------
-# slight seasonal adj
+# slight seasonal adj?
   
-write_csv(month, "./data/out/month.csv")
+write_csv(month_pre, "./data/out/month_pre.csv")
+write_csv(month_post, "./data/out/month_post.csv")
+
 
 ######## make blank df for joining ########################################
 # Fix blanks
