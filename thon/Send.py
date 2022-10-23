@@ -30,6 +30,17 @@ gmailkey = "leejohnson1933"
 
 import yagmail
 
+import smtplib, ssl
+
+yag = yagmail.SMTP("ljleadingindicators@gmail.com", password = gmailkey, )
+
+contents = [
+    "This is the body, and here is just text"
+]
+yag.send('test', contents)
+
+
+
 receiver = "keatonmarkey@gmail.com"
 body = "Hello there from Yagmail"
 filename = "document.pdf"

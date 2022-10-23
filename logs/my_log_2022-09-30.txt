@@ -1,0 +1,16 @@
+INFO [2022-09-30 14:13:53] Correlation cutoff set to 0.15 and lead time set to 6 months
+INFO [2022-09-30 14:13:53] KDAt read, 19552 rows, 16 columns
+INFO [2022-09-30 14:13:53] Date range set between 2015-01-01 and 2020-03-26
+INFO [2022-09-30 14:13:53] Calculating daily totals
+INFO [2022-09-30 14:13:54] Completed daily imputation on: 
+20 values of n
+43 values of tgp_a
+187 values of cp_a
+INFO [2022-09-30 14:13:54] Calculating monthly totals
+INFO [2022-09-30 14:13:54] Searching for training feature data between 2015-01-01 and 2020-11-30
+INFO [2022-09-30 14:13:54] Searching for forecast feature data between 2019-11-30 and 2020-11-30
+INFO [2022-09-30 14:13:54] Saving search bounds and saving blank join frame
+INFO [2022-09-30 14:13:58] Joining all Quandl
+INFO [2022-09-30 14:13:58] Joining features by month
+INFO [2022-09-30 14:13:58] Filtering for correlation = 0.15 and lead = 6 months
+INFO [2022-09-30 14:13:58] features.csv saved!

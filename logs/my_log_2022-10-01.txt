@@ -1,0 +1,17 @@
+INFO [2022-10-01 15:36:39] Correlation cutoff set to 0.15 and lead time set to 1 months
+INFO [2022-10-01 15:36:44] KDAt read, 19552 rows, 16 columns
+INFO [2022-10-01 15:36:44] Date range set between 2015-01-01 and 2020-03-26
+INFO [2022-10-01 15:36:45] Completed daily imputation on: 
+20 values of n
+43 values of tgp_a
+187 values of cp_a
+INFO [2022-10-01 15:36:45] Saving monthly totals
+INFO [2022-10-01 15:36:46] Searching for training feature data between 2015-01-01 and 2020-11-30
+INFO [2022-10-01 15:36:46] Searching for forecast feature data between 2019-11-30 and 2020-11-30
+INFO [2022-10-01 15:36:46] Saving search bounds and saving blank join frame
+INFO [2022-10-01 15:36:57] Joining features by month
+INFO [2022-10-01 15:36:59] Filtering for correlation = 0.15 and lead = 1 months
+INFO [2022-10-01 15:37:01] features.csv saved!
+INFO [2022-10-01 15:38:05] 112 features saved to features.csv
+INFO [2022-10-01 16:03:58] Filtering for correlation = 0.2 and lead = 2 months
+INFO [2022-10-01 16:04:05] 73 features saved to features.csv

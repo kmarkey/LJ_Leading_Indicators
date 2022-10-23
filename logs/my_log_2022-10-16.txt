@@ -1,0 +1,18 @@
+INFO [2022-10-16 17:39:09] ##------ Sun Oct 16 17:39:09 2022 ------##
+INFO [2022-10-16 17:39:09] Preparing data for NULL to estimate total sales for the next 3 months
+INFO [2022-10-16 17:39:09] Correlation cutoff set to 0.2 and lead time set to 3 months
+INFO [2022-10-16 17:39:09] KDAt read, 19552 rows, 16 columns
+INFO [2022-10-16 17:39:09] Month range set between 2016-01-01 and 2020-10-31
+INFO [2022-10-16 17:39:10] Completed daily imputation on: 
+55 values of n
+83 values of tgp_a
+280 values of cp_a
+INFO [2022-10-16 17:39:10] Saving monthly totals
+INFO [2022-10-16 17:39:10] Searching for training feature data between 2015-01-01 and 2020-10-31
+INFO [2022-10-16 17:39:10] Searching for forecast feature data between 2019-10-31 and 2020-10-31
+INFO [2022-10-16 17:39:10] Selecting n from month.csv
+INFO [2022-10-16 17:39:10] Added 0 months and replaced 0 value with 0
+INFO [2022-10-16 17:39:11] Using existing Quandl data
+INFO [2022-10-16 17:39:12] Joining features by month
+INFO [2022-10-16 17:44:18] Filtering for correlation = 0.2 and lead = 3 months
+INFO [2022-10-16 17:44:24] 81 features saved to features.csv

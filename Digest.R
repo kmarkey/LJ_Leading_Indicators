@@ -1,11 +1,8 @@
 # this script compiles all csv data, administers a feature correlation cutoff cor_max 
 # and filters features what will allow us to see 3 months into the future
 
-# set correlation threshold
-cor_max <- 0.15
 
-
-#-------------------------------------------------------------------------------
+#===============================================================================
 # Home sales
 # Consumer confidence index
 # Interest Rates
@@ -18,47 +15,73 @@ cor_max <- 0.15
 
 # work in python to download online data
 
-setwd("~/LocalRStudio/LJ_Leading_Indicators/")
-
-source("Transform.R", echo = FALSE)
-
-library(Quandl)
 library(dplyr)
 library(tidyr)
 library(readr)
+library(logger)
+library(here)
+library(rlang)
 
+here()
 
 # From Quandl, monthly observations don't come on the 1st
 # Lag months and then filter to interval of nrow(month)
 
-# read in month
-month_pre <- read_csv("data/out/month_pre.csv")
-month_post <- read_csv("data/out/month_post.csv")
-
+# read in month?
+month <- read_csv(paste0("./data/out/", monthfile))
 #===============================================================================
 # set search date boundaries
-search_bottom <- min(month_pre$date) - years(1) # from month
-search_top <- ceiling_date(max(month_post$date), unit = "month") - 1
 
-paste("Searching between", search_bottom, "and", search_top)
+search_bottom <- min(month$date) - years(1) # from month
+search_top <- ceiling_date(max(month$date), unit = "month") - 1
 
+log_info("Searching for training feature data between {search_bottom} and {search_top}")
 
 lead_bottom <- search_top - years(1)
-lead_top <- search_top # 3 months ahead!?!?!?
+lead_top <- search_top # 3 months ahead
 
-paste("Searching between", lead_bottom, "and", lead_top)
+log_info("Searching for forecast feature data between {lead_bottom} and {lead_top}")
 
+log_trace("Saving search bounds and blank join frame")
 
 # write out
-write_csv(tibble(search_bottom = search_bottom,
+boundlist <- tibble(search_bottom = search_bottom,
                  search_top = search_top,
                  lead_bottom = lead_bottom,
-                 lead_top = lead_top), "keys/bounds.csv")
+                 lead_top = lead_top) 
 
-# blank df for join
-blank_m <- tibble(date = seq.Date(from = search_bottom, to = search_top, by = "month"))
+boundlist
+write_csv(boundlist, "./keys/bounds.csv")
 
-write_csv(blank_m, "keys/blank_m.csv")
+# blank df for join, and join
+blank_m <- tibble(date = seq.Date(from = as.Date(search_bottom), to = search_top, by = "month"))
+
+log_info("Selecting {targetvar} from {monthfile}")
+
+# replace all NAs with 0s
+mylist <- list()
+
+for (avar in targetvar) {
+  mylist[[avar]] = 0
+}
+
+mrow <- nrow(month)
+mmissing <- sum(is.na(month))
+
+if (monthfile == "month_post.csv") {
+  min_date <- covid_cutoff + 1
+}
+
+month <- right_join(month, tibble(date = seq.Date(from = as.Date(min_date), to = search_top, by = "month"))) %>%
+  arrange(desc(date)) %>%
+  dplyr::select(date, all_of(targetvar)) %>%
+  tidyr::replace_na(mylist)
+
+
+log_info("Added {nrow(month) - mrow} months and replaced {sum(nrow(month) - mrow, is.na(month))} value with 0")
+
+write_csv(blank_m, "./keys/blank_m.csv")
+
 
 # #################### explore ideas #############################################
 # library(corrplot)

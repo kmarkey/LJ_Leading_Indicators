@@ -20,35 +20,50 @@ editor_options:
 
 ```{r setup}
 library(here)
-library(zoo)
-
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+library(logger)
+library(here)
+library(scales)
+library(tidyr)
 ```
 
 ### Project Aim:
 
-From the last 5 years of data, we are trying to find external indicators
-of a variety of business metrics within the Lee Johnson Auto Family's
-Kirkland location. I will gather a time-dependent economic data and
-create a model that predicts business performance.
+Find external indicators that provide reliable insight into the business
+performance of the Lee Johnson Auto Family's Kirkland location.
 
-## Process:
+### 1. Digest a Prepare Data
 
-### 1. Digest a Prepare LJ Data
+Raw sales data provided by LJ Auto Family has been summarized by month.
 
-### 2. Select Indicators
+### 2. Find Indicators
 
-### 3. Create 3 Different Models
+Potential candidates were chosen from a pool of stocks, economic
+measures, information available from Google Trends, and internal
+appointment information. The candidates came from suggestions by Tod,
+other similar projects, and current market research. Indicators were
+finally identified using a correlation coefficient cutoff and Lasso L1
+regularization. Indicators can be found for each lead time and target
+metric.
 
-a)  Elastic Net
-b)  LS-SVM
-c)  RNN
+### 3. Create Predictions
+
+Using the indicators, three modeling techniques are used to estimate
+business performance at a 3-month advance.
+
+a)  Linear Model
+b)  Decision Tree
+c)  
 
 ### 4. Figure Appendix
 
-```{r, include=FALSE, echo = FALSE}
-setwd("~/LocalRStudio/LJ_Leading_Indicators")
-source("Tranform.R")
-source("Digest.R")
+### 5. Indicator Index
+
+```{r, label="Set Bounds", include=FALSE, echo = FALSE}
+here()
+source("Collage.R")
 
 # generated on
 today <- Sys.Date()
@@ -60,6 +75,9 @@ lmonth <- floor_date(floor_date(today, unit = "month") - 1, unit = "month")
 pmonth <- floor_date(floor_date(max(KDAt$date), unit = "month") - 1, unit = "month")
 pomonth <- ceiling_date(pmonth, unit = "month") - 1
 
+nmonth <- pomonth + 1
+nomonth <- ceiling_date(nmonth, unit = "month") - 1
+
 # days behind
 lmonth - pmonth
 
@@ -70,7 +88,7 @@ repon <- pomonth + 1
 repfor <- paste0(month(pomonth, label = TRUE, abbr = FALSE), ", ", year(pmonth))
 ```
 
-```{r theme setup, include = FALSE, echo = FALSE}
+```{r theme set, include = FALSE, echo = FALSE}
 pal <- c("#f6aa1c","#08415c","#6b818c","#eee5e9","#ba7ba1","#c28cae","#a52a2a")
 
 blue <- "#114482"
@@ -79,6 +97,7 @@ llightblue <- "#AFCFFF"
 red <- "#a52a2a"
 white <- "#FBFFF1"
 yellow <- "#F6AA1C"
+green <- "#588157"
 
 ljtheme <- function(){
     theme_minimal() %+replace%
@@ -92,6 +111,10 @@ ljtheme <- function(){
       legend.title = element_text(face = "bold.italic", color = blue),
       legend.position = "bottom",
       legend.key = element_rect(fill = white),
+      
+      
+      strip.text.x = element_text(size = 12, color = white, face = "bold.italic"),
+      strip.text.y = element_text(size = 12, color = white, face = "bold.italic"),
       text = element_text(color = white),
       axis.title = element_text(face = "italic", size = 11, color = white), 
       axis.text = element_text(color = white, size = 9), 
@@ -106,71 +129,363 @@ ljtheme <- function(){
   }
 
 theme_set(ljtheme())
+
+integer_breaks <- function(n = 5, ...) {
+  fxn <- function(x) {
+    breaks <- floor(pretty(x, n, ...))
+    names(breaks) <- attr(breaks, "labels")
+    breaks
+  }
+  return(fxn)
+}
 ```
 
 ## 1. Digestion
 
-After receiving LJ data, all other data is either requested with a
-Quandl API or scraped from json files with python
+After processing LJ data, all external indicators are fetched from the
+following sources and API packages monthly:
+
+-   Quandl
+-   AlphaVantage
+    -   with the alpha_vantage library
+-   Google Trends
+    -   with the pytrends library
+-   St. Louis Federal Reserve
 
 This report should be generated on the **1st of each month**
 
-Here's whats new for Lee Johnson as of last month.
+Each source is lagged 2, 3, 6, and 12 months.
 
-```{r LJ New}
+## 2. Indicators
+
+Each source file contains multiple candidates. Each candidate is
+evaluated separately for simple correlation with respect to the target
+metric. Any candidate that does not meet the correlation threshold is
+eliminated as the first pass of feature selection.
+
+Features are further selected for each model independently in the
+following ways:
+
+-   Linear Model
+    -   Each remaining feature is passed through a Lasso regularization
+        process, which selects features based on the efficacy of linear
+        models that contain them using 5-fold cross-validation.
+-   Decision Tree
+    -   Regularization is applied after training when the tree is pruned
+        at a depth optimized by 5-fold cross-validation.
+-   Random Forest
+    -   
+
+A simple correlation is calculated for each source with respect to the
+target metric. Based on
+
+```{r New/Used Movers}
 #### rolling average
 #https://stackoverflow.com/questions/33769770/use-rollapply-and-zoo-to-calculate-rolling-average-of-a-column-of-variables
 
-mgroups <- KDAt %>%
-  mutate(group = ifelse(date >= pmonth & date <= pomonth, 0, # last 6 months
-                        ifelse(date >= pmonth - months(1), 1, # month before
-                        ifelse(date >= pmonth - months(2), 2,
-                        ifelse(date >= pmonth - months(3), 3,
-                        ifelse(date >= pmonth - months(4), 4,
-                        ifelse(date >= pmonth - months(5), 5,
-                        ifelse(date >= pmonth - months(6), 6, 7)))))))) %>%
-  dplyr::filter(group != 7)# 6 months
-                                # last year + forever
+# Change in sales for the 5 most common vehicles new/used
 
+# biggest movers from last month ??
+newmonth <- KDAt %>%
+  dplyr::filter(nu == "NEW", date >= pmonth - months(1), date <= pomonth) %>% # this and last month
+  dplyr::mutate(carname = str_c(make, " ", model, " ", caryear), .keep = 'unused') %>%
+  dplyr::group_by(carname, month = ifelse(month(date) == month(pmonth), "current", "last")) %>% # change month names
+  dplyr::summarise(n = n()) %>%
+  pivot_wider(id_cols = "carname", names_from = "month", values_from = "n", values_fill = 0) %>%
+  
+  dplyr::mutate(change = current - last) %>%
+  ungroup() %>%
+  slice_max(n = 10, order_by = abs(change), with_ties = FALSE)
+
+
+newmonth %>%
+  ggplot() + geom_segment(aes(x = reorder(carname, last), y = last, xend = carname, yend = current, color = change < 0),
+                          size = 3, lineend = "round", linejoin = "bevel",
+                          arrow = arrow(length = unit(0.2, "inches"), ends = "first")) +
+  theme(axis.text.x = element_text(angle = -25),
+        legend.position = "none") +
+  scale_color_manual(values = c(red, green)) +
+  labs(title = "Biggest Movers This Month for New Cars",
+       subtitle = repfor, 
+       x = "",
+       y = "Change In Sales This Month")
+
+# not grouped by year!???
+usedmonth <- KDAt %>%
+  dplyr::filter(nu == "USED", date >= pmonth - months(1), date <= pomonth) %>% # this and last month
+  dplyr::mutate(carname = str_c(make, " ", model), .keep = 'unused') %>%
+  dplyr::group_by(carname, month = ifelse(month(date) == month(pmonth), "current", "last")) %>% # change month names
+  dplyr::summarise(n = n()) %>%
+  pivot_wider(id_cols = "carname", names_from = "month", values_from = "n", values_fill = 0) %>%
+  
+  dplyr::mutate(change = current - last) %>%
+  ungroup() %>%
+  slice_max(n = 10, order_by = abs(change), with_ties = FALSE)
+
+
+usedmonth %>%
+  ggplot() + geom_segment(aes(x = reorder(carname, last), y = last, xend = carname, yend = current, color = change < 0),
+                          size = 3, lineend = "round", linejoin = "bevel",
+                          arrow = arrow(length = unit(0.2, "inches"), ends = "first")) +
+  theme(axis.text.x = element_text(angle = 10),
+        legend.position = "none") +
+  scale_color_manual(values = c(red, green)) +
+  labs(title = "Biggest Movers This Month for Used Cars",
+       subtitle = repfor,
+       x = "",
+       y = "Change In Sales This Month")
+```
+
+```{r Last 6 Months Sales}
 mlabs <- function(x) {
   paste0(month(pmonth - months(as.numeric(x)), label = TRUE, abbr = FALSE))
 }
 
-mgroups %>% 
-  group_by(group) %>%
-  mutate(ycount = n()) %>%#/as.numeric(diff(range(date)))) %>%
-  summarise(group, ycount) %>%
+mgroups <- KDAt %>%
+  dplyr::mutate(mgroup = factor(month(pmonth) - month(date), ordered = TRUE), theyear = year(date)) %>%
+  group_by(mgroup, theyear) %>%
+  summarise(ycount = n(), mgroup, theyear) %>%
   distinct() %>%
-  ggplot() + geom_bar(aes(x = factor(group), y = ycount), 
-                      stat = "identity", fill = lightblue, alpha = 0.6) +
-  geom_label(aes(x = factor(group), y = ycount, label = ycount)) +
-  scale_x_discrete(labels = mlabs, limits = rev) +
-  labs(title = "Raw Sales",
-       y = "Number of Sales",
-       x = "Month")
+  dplyr::filter(theyear >= year(pmonth) - 1, mgroup <= 5 && mgroup >= 0)
 
+
+ggplot() + geom_bar(data = mgroups %>% dplyr::filter(theyear == year(pmonth)), 
+                    aes(x = mgroup, y = ycount), width = 0.7,
+                    stat = "identity", fill = lightblue, alpha = 0.8) +
+  geom_line(data = mgroups %>% dplyr::filter(theyear == year(pmonth) - 1),
+            aes(x = mgroup, y = ycount, group = theyear), lwd = 1.5, lty = 8, alpha = 0.6) +
+  geom_label(data = mgroups %>% dplyr::filter(theyear == year(pmonth)),
+             aes(x = mgroup, y = ycount, label = ycount)) +
+  geom_label(data = mgroups %>% dplyr::filter(theyear == year(pmonth) - 1, mgroup == 5),
+             aes(x = mgroup, y = ycount - 10, label = "Last Year"), fill = "black", color = "white") +
+    
+    scale_x_discrete(labels = mlabs, limits = rev) +
+  
+    labs(title = "Number of Sales in the Last 6 Months",
+         subtitle = paste0("For ", repfor),
+         y = '',
+         x = '')
 ```
 
-Compare to other years
+Compare this month to other years
 
+```{r, label="This Month's Rank Among Other Years"}
+calmonth <- KDAt %>%
+  dplyr::filter(month(date) == month(pmonth), year(date) <= year(pmonth)) %>%
+  group_by(theyear = year(date)) %>%
+  dplyr::transmute(`Avg. Cash Price` = mean(cash_price, na.rm = TRUE),
+                   `Total Gross` = sum(total_gross_profit, na.rm = TRUE),
+                   `Back Gross` = sum(back_gross_profit, na.rm = TRUE),
+                   `Front Gross` = sum(front_gross_profit, na.rm = TRUE),
+                   `New Sales` = sum(ifelse(nu == "NEW", 1, 0)),
+                   `Used Sales` = sum(ifelse(nu == "USED", 1, 0)),
+                   ) %>%
+  distinct() %>%
+  
+  pivot_longer(!theyear, names_to = "name", values_to = "value") %>%
+  group_by(name = factor(name, levels = c("Total Gross", # ordered
+                                          "Back Gross",
+                                          "Front Gross",
+                                          "Avg. Cash Price",
+                                          "New Sales",
+                                          "Used Sales"), ordered = TRUE)) %>%
+  
+  mutate(ranks = order(order(value, decreasing = TRUE)), # actual ranks
+         rankval = order(order(value))) # numeric bar chart value
+
+ggplot(calmonth) +
+  geom_bar(aes(x = theyear, y = rankval, fill = rankval),  stat = "identity") + 
+  facet_wrap(~name) + 
+  geom_text(aes(x = theyear, y = rankval/2, label = ranks), color = white) +
+  scale_fill_gradient2(midpoint = 3, low = red, mid = llightblue,
+                     high = blue) +
+  labs(title = paste0("Rankong the ", month(pmonth, label = TRUE, abbr = FALSE), " Months"),
+       subtitle = paste0("For ", repfor),
+       x = '',
+       y = '') +
+  theme(legend.position = "none",
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+```
+```{r, label="People"}
+# best salesman by avg cash price? avg fgp? n sales? for this month
+
+salesman_metric <- "cp_a" # button?
+
+salesman_metric_dict <- c(n = "Total Sales", fgp_a = "Avg. Front Gross Profit", cp_a = "Avg. Cash Price")
+
+salespeople <- KDAt %>%
+  dplyr::filter(date >= pmonth, date <= pomonth) %>%
+  group_by(salesman) %>%
+  dplyr::transmute(cp_a = mean(cash_price, na.rm = TRUE), 
+                fgp_a = mean(front_gross_profit, na.rm = TRUE),
+                n = n(),
+                salesman) %>%
+  distinct() %>%
+  ungroup() %>%
+  slice_max(n = 5, order_by = get(salesman_metric))
+
+salespeople %>%
+  ggplot() + geom_bar(aes(x = reorder(salesman, get(salesman_metric)), 
+                                      y = get(salesman_metric)), 
+                          stat = "identity", fill = lightblue) + 
+  {if(salesman_metric == "n")geom_label(aes(x = salesman,
+                 y = get(salesman_metric),
+                 label = paste0(salesman, "\n", round(get(salesman_metric), digits = 0))),
+             size = 3)} +
+  {if(salesman_metric != "n")geom_label(aes(x = salesman,
+                 y = get(salesman_metric),
+                 label = paste0(salesman, "\n$", scales::comma(round(get(salesman_metric), digits = 0)))),
+             size = 3)} +
+  # geom_label(aes(x = salesman,
+  #                y = get(salesman_metric),
+  #                label = paste0(salesman, "\n", scales::comma(round(get(salesman_metric), digits = 0)))),
+  #            size = 3) +
+
+  labs(title = paste("Top Salesman By", salesman_metric_dict[salesman_metric]),
+       subtitle = repfor,
+       y = salesman_metric_dict[salesman_metric],
+       x = "") +
+  scale_y_continuous(expand = expansion(mult = c(-0.5, 0.05)),
+                     breaks = integer_breaks()) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+  
+# best fi manager by back gross
+fipeople <- KDAt %>%
+  dplyr::filter(date >= pmonth, date <= pomonth) %>%
+  group_by(fimanager) %>%
+  dplyr::transmute(bgp_a = mean(back_gross_profit, na.rm = TRUE), fimanager) %>%
+  distinct() %>%
+  ungroup() %>%
+  slice_max(n = 5, order_by = bgp_a)
+  
+fipeople %>%
+  ggplot() + geom_bar(aes(x = reorder(fimanager, bgp_a), 
+                                      y = bgp_a), 
+                          stat = "identity", fill = lightblue) + 
+  geom_label(aes(x = fimanager,
+                 y = bgp_a,
+                 label = paste0(fimanager, "\n $", scales::comma(round(bgp_a, digits = 0)))),
+             size = 3) +
+
+  labs(title = paste("Top Finance Manager By Avg. Back Gross Profit"),
+       subtitle = repfor,
+       y = "Back Gross Profit",
+       x = "") +
+  scale_y_continuous(expand = expansion(mult = c(-0.5, 0.05)),
+                     breaks = integer_breaks()) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+```
+# Next Month?
+Based on past business performance cycles, months + years
+
+```{r, label="Next Month"}
+# years on right, months on left?
+#
+nmonth_metric <- "Back Goss"
+
+estimates_for <- paste0(month(nmonth, abbr = FALSE, label = TRUE), ", ", year(nmonth))
+
+# last 2 months, last 2 years
+predate <- as.character(c(as.character(rev(month((nmonth) - months(1:2), label = TRUE, abbr = FALSE))), # last 2 months
+                          estimates_for,
+                          (year(nmonth) - 1):year((nmonth) - years(2)))) # last 2 years
+
+# group 2 insert for next month
+thismonthinsert <- list(group = 2, 
+                        tframe = estimates_for, 
+                        "Avg. Cash Price" = NULL,
+                        "Total Gross" = NULL, 
+                        "Back Gross" = NULL,
+                        "Front Gross" = NULL, 
+                        "New Sales" = NULL,
+                        "Used Sales" = NULL)
+
+# previous months + years for next month
+
+nmonth_df <- bind_rows(KDAt %>% # last 2 months
+                   dplyr::filter(date >= pmonth - months(1), date < pomonth) %>%
+                   dplyr::mutate(group = 1, tframe = as.character(month(date, label = TRUE, abbr = FALSE))),
+                 KDAt %>% # last 2 years
+                   dplyr::filter(month(date) == month(pmonth) + 1, year(date) >= year(pmonth) - 2, date < pomonth) %>%
+                   dplyr::mutate(group = 3, tframe = as.character(year(date)))) %>%
+  group_by(group, tframe) %>%
+  summarise(`Avg. Cash Price` = mean(cash_price, na.rm = TRUE),
+            `Total Gross` = sum(total_gross_profit, na.rm = TRUE),
+            `Back Gross` = sum(back_gross_profit, na.rm = TRUE),
+            `Front Gross` = sum(front_gross_profit, na.rm = TRUE),
+            `New Sales` = sum(ifelse(nu == "NEW", 1, 0)),
+            `Used Sales` = sum(ifelse(nu == "USED", 1, 0))) %>%
+  bind_rows(thismonthinsert) %>%
+  dplyr::mutate(tframe = factor(tframe, levels = predate, order = TRUE)) %>%
+  pivot_longer(cols = -any_of(c("group", "tframe")), names_to = "class", values_to = "value") %>%
+  group_by(group, class) %>%
+  dplyr::mutate(a = ifelse(group != 2, coef(lm(value ~ as.numeric(tframe)))[2], 0),
+                b = ifelse(group != 2, coef(lm(value ~ as.numeric(tframe)))[1], 0))
+
+if (!(nmonth_metric %in% nmonth_df$class)) {
+  warn("Enter a valid class")
+} 
+
+# prediction function
+predrectf <- function(facet) {
+  g1 <- predict(lm(value ~ as.numeric(tframe), data = nmonth_df, subset = (group == 1 & class == nmonth_metric)), list(tframe = 3))
+  g3 <- predict(lm(value ~ as.numeric(tframe), data = nmonth_df, subset = (group == 3 & class == nmonth_metric)), list(tframe = 3))
+  return(c(group1 = g1, group3 = g3))
+}
+
+# get bounding box
+predrect <- predrectf()
+
+nmonth_df %>%
+  filter(class == nmonth_metric) %>%
+  ggplot() + 
+  geom_point(aes(x = tframe, y = value, fill = factor(group), shape = factor(group)),
+             size = 5,
+             color = "black",
+             inherit.aes = FALSE) +
+  scale_shape_manual(values = c(25, 2, 22)) +
+  geom_abline(aes(slope = a, intercept = b, color = factor(group)),
+             lty = 2, size = 2) +
+  theme(axis.text.x = element_text(angle = 15),
+        legend.position = "none") +
+  geom_rect(aes(xmin = 2.8, xmax = 3.2, ymin = min(predrect), ymax = max(predrect)),  # should always be between 5.5 and 6.5
+            stat = "identity", 
+            data = nmonth_df %>%
+             filter(group == 2), 
+            inherit.aes = FALSE, 
+            alpha = 0.1,
+            color = "black") +
+  scale_y_continuous(labels = comma) + 
+  coord_cartesian(ylim = c(min(predrect) * 0.7, max(predrect) * 1.3)) +
+  labs(title = paste0(nmonth_metric, " Estimate for This Month"),
+       subtitle = paste0(month(repon, abbr = FALSE, label = TRUE), ", ", year(repon)),
+       x = "",
+       y = "Value")
+```
+# Predictions
 ```{r}
+# read in imaginary df(s)
+
 
 ```
 
+
+
+# Cumulative
+```{r, label="Cumulative Tracker"}
+
+```
 ### 2. Summary statistics
 
-```{r}
+```{r Summary}
 summary(KDAt)
 glimpse(KDAt)
 ```
 
 #### We have some NA's, or empty spaces, in the data. This could be for a
-
-variety of reasons, someone didn't enter in a number, it got lost in
-translation, or just didn't exist in the first place. Before we deal
-with these missing values, let's see how much they affect our data. We
-really only care about NAs in numerical columns, because thats when they
-could affect the stats we will run later.
 
 #### We can use logistic regression to tell us how much the NAs might influence
 
@@ -342,15 +657,6 @@ plot(rogue)
 ```
 
 #### Now, we are ready to test this df against some possible leading indicators.
-
-As I understand it, leading indicators will show the current trend some
-number of days, weeks, or even months. So instead of just joining two df
-by date against each other and grabbing the correlation from there,
-we'll want to modulate how far in the past (or the future) we offset one
-df. Ideally, we would check the correlation at a number of offset
-points, to find the highest value we can get from the data. I need to
-design a function to compile each new df and put it into a table of
-correlations with LJ data.
 
 ## Part 2.
 
