@@ -1,0 +1,15 @@
+INFO [2022-10-29 21:37:27] Setting standard for cor_max: 0.2 and lead time: 3 months
+INFO [2022-10-29 21:37:27] Calling some friends
+INFO [2022-10-29 21:37:27] Gently tucking the data in for a nap
+INFO [2022-10-29 21:37:28] Opened KDAt with 45543 rows and 16 columns
+INFO [2022-10-29 21:37:28] Data available from 2010-01-01 to 2022-09-30
+INFO [2022-10-29 21:37:29] Saving data
+INFO [2022-10-29 21:37:29] Chewing on parameters
+INFO [2022-10-29 21:37:29] Using full dataset
+INFO [2022-10-29 21:37:29] Proceeding with 153 values of n
+INFO [2022-10-29 21:37:29] Setting search lbound to 2009-01-01 ubound to 2022-09-01
+INFO [2022-10-29 21:37:30] Joining features by month
+ERROR [2022-10-29 21:37:30] Missing values in feature data
+INFO [2022-10-29 21:37:30] Doing coorelations
+INFO [2022-10-29 21:37:30] Taking out bad apples where cor < 0.2, lead < 3 months, and removing like feature names
+INFO [2022-10-29 21:37:31] 26 features saved to features.csv, length 153

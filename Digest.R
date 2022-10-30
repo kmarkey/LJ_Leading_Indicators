@@ -1,7 +1,3 @@
-# this script compiles all csv data, administers a feature correlation cutoff cor_max 
-# and filters features what will allow us to see 3 months into the future
-
-
 #===============================================================================
 # Home sales
 # Consumer confidence index
@@ -24,39 +20,73 @@ library(rlang)
 
 here()
 
+################# gets vars from Collage.R
+# change so this cript just selects targetvar and filters date range
+
 # From Quandl, monthly observations don't come on the 1st
 # Lag months and then filter to interval of nrow(month)
 
+log_info("Chewing on parameters")
 # read in month?
-month <- read_csv(paste0("./data/out/", monthfile))
+month_all <- read_csv("./data/out/month_all.csv")
 #===============================================================================
 # set search date boundaries
 
-search_bottom <- min(month$date) - years(1) # from month
-search_top <- ceiling_date(max(month$date), unit = "month") - 1
 
-log_info("Searching for training feature data between {search_bottom} and {search_top}")
+#=========================== data partitions ===================================
+# Feb is the last full month
+covid_cutoff <- ceiling_date(as.Date("2020-03-26") - months(1), unit = "month") - 1
+old_cutoff <- as.Date("2015-12-31")
+
+
+if (train_set == "pre-covid") {
+  log_info("Using pre-covid data before COVID-19 cutoff date {covid_cutoff}")
+  month <- dplyr::filter(month_all, date <= covid_cutoff)
+  
+} else if (train_set == "post-covid") {
+  log_info("Using post-covid data after COVID-19 cutoff date {covid_cutoff}")
+  month <- dplyr::filter(month_all, date > covid_cutoff)
+    
+} else if (train_set == "oldest") {
+  log_info("Using older data before {covid_cutoff}")
+  month <- dplyr::filter(month_all, date <= old_cutoff)
+  
+} else if (train_set == "newest") {
+  log_info("Using newer data after {covid_cutoff}")
+  month <- dplyr::filter(month_all, date > old_cutoff)
+  
+} else {
+  log_info("Using full dataset")
+  month <- month_all
+}
+
+month <- dplyr::select(month, all_of(targetvar), date)
+
+log_info("Proceeding with {nrow(month)} values of {targetvar}")
+
+#=========================== data search bounds ================================
+#### not sure if using these
+search_bottom <- min(month$date) - years(1) # from month
+
+# expect full most recent month
+search_top <- max(month$date)
+
+log_info("Setting search lbound to {search_bottom} ubound to {search_top}")
 
 lead_bottom <- search_top - years(1)
 lead_top <- search_top # 3 months ahead
 
-log_info("Searching for forecast feature data between {lead_bottom} and {lead_top}")
-
-log_trace("Saving search bounds and blank join frame")
-
 # write out
 boundlist <- tibble(search_bottom = search_bottom,
-                 search_top = search_top,
-                 lead_bottom = lead_bottom,
-                 lead_top = lead_top) 
+                    search_top = search_top,
+                    lead_bottom = lead_bottom,
+                    lead_top = lead_top) 
 
-boundlist
-write_csv(boundlist, "./keys/bounds.csv")
+# blank df for feature prep
+blank_m <- tibble(date = seq.Date(from = search_bottom, to = search_top, by = "month"))
 
-# blank df for join, and join
-blank_m <- tibble(date = seq.Date(from = as.Date(search_bottom), to = search_top, by = "month"))
+log_trace("Search bounds and blank_m saved!")
 
-log_info("Selecting {targetvar} from {monthfile}")
 
 # replace all NAs with 0s
 mylist <- list()
@@ -65,37 +95,13 @@ for (avar in targetvar) {
   mylist[[avar]] = 0
 }
 
-mrow <- nrow(month)
-mmissing <- sum(is.na(month))
-
-if (monthfile == "month_post.csv") {
-  min_date <- covid_cutoff + 1
+if (sum(is.na(month)) > 0) {
+  log_error("A fire is starting! Missing values of {targetvar}!")
+  month <- month %>%
+    replace_na(0)
 }
 
-month <- right_join(month, tibble(date = seq.Date(from = as.Date(min_date), to = search_top, by = "month"))) %>%
-  arrange(desc(date)) %>%
-  dplyr::select(date, all_of(targetvar)) %>%
-  tidyr::replace_na(mylist)
 
-
-log_info("Added {nrow(month) - mrow} months and replaced {sum(nrow(month) - mrow, is.na(month))} value with 0")
+# log_info("Added {nrow(month) - mrow} months and replaced {sum(nrow(month) - mrow, is.na(month))} value with 0")
 
 write_csv(blank_m, "./keys/blank_m.csv")
-
-
-# #################### explore ideas #############################################
-# library(corrplot)
-# 
-# corrplot(complete_cor, method = "color")
-# corrplot(cor(features), method = "color")
-# 
-# complete_dirty %>%
-#   dplyr::select(ends_with("_raw"), n, date) %>%
-#   pivot_longer(cols = c(-n, -date), names_to = "tick", values_to = "value") %>%
-#   ggplot() + geom_line(aes(x = date, y = n), color = "blue") +
-#   geom_line(aes(x = date, y = value, group = tick, color = tick), alpha = 0.4) +
-#   guides(color = "none") +
-#   theme_minimal()
-# 
-# ggplot(complete_dirty) + geom_line(aes(x = date, y = n)) + 
-#   geom_line(aes(x = date, y = ARM5_raw, color = "var"))

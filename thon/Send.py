@@ -9,7 +9,6 @@ Created on Sat Sep 10 12:23:30 2022
 import smtplib, ssl
 
 # port = 465  # For SSL
-gmailkey = "leejohnson1933"
 # password = gmailkey
 
 # # Create a secure SSL context

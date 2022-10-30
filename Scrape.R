@@ -18,7 +18,7 @@ library(here)
 here()
 
 # read in keys
-log_trace("Reading in API keys")
+log_trace("Remembering where you left the API keys")
 
 keys <- read_delim("keys/keys.txt", delim = ",", trim_ws = TRUE)
 Quandl.api_key(as.character(keys$key[4]))
@@ -77,7 +77,7 @@ if (nrow(exist) == nrow(blank_m) &&
   log_trace("Reading 5/1-Year Adjustable Rate Mortgage Average in the United States")
   ARM5 <- quandl_get("FMAC/5US", x = "Value", prefix = "sfrm", bounds$search_bottom, bounds$search_top)
   
-  log_info("Joining all Quandl")
+  log_info("Smashing all Quandl together")
   
   quandl_data <-
     left_join(oil, NGF1, by = "date") %>%
