@@ -7,252 +7,327 @@ Created on Fri Jun  3 20:07:31 2022
 """
 
 # free stock data with alpha vantage
+import sys
 import requests
 import os
 import pandas as pd
 from alpha_vantage.timeseries import TimeSeries # AV
 import pandas_datareader as pdr # access fred
 from pytrends.request import TrendReq # google trends
-from datetime import datetime
-import time
 from datetime import *
+import time
 import numpy as np
+import webbrowser
+import logging
+from pytrends.exceptions import ResponseError
 
-########### SHould use keys from LJ Leading Indicators gmail
-
+########### Should use keys from LJLI gmail
 #-------------------------
-os.chdir('C:/Users/keato/Documents/LocalRStudio/LJ_Leading_Indicators')
-#-------------------------
 
-def get_keys(path = "keys/keys.txt"):
+# log file
+# run on the same date!
+# logging.basicConfig(filename="./logs/my_log_" + str(datetime.date.today()) + ".log", encoding='utf-8', level=logging.DEBUG)
+
+def get_keys(key_class, relpath = "./keys/keys.txt"):
+    # not quite parsing correctly but still works with \n
     keys = {}
-    with open(os.path.join(os.getcwd(), path)) as f:
-        for line in f:
-           k, v = line.split(",")
-           keys[k] = v
-    alphavantage_key = keys["alphavantage_key"]
-    fred_key = keys["fred_key"]
-    quandl_key = keys["quandl_key"]
-    census_key = keys ["census_key"]
-    return alphavantage_key, fred_key, quandl_key, census_key
+    
+    try:
+        with open(os.path.join(os.getcwd(), relpath)) as f:
+            for line in f:
+                k, v = line.split(",")
+                keys[k] = v
+           
+    except FileNotFoundError:
+        logging.exception("Key file not found")
+      
+    try:
+          
+            return keys[key_class]
+          
+    except KeyError:
+      
+        logging.exception("{} is not a valid key class".format(key_class))
+    
+    else:
+      
+        logging.exception("Error getting keys")
 
-# Your key here
 # https://github.com/RomelTorres/alpha_vantage
-avkey, fredkey, qkey, ckey = get_keys()
 
+def get_search_bounds(relpath = "./keys/bounds.csv"):
+    try:
+      
+        bounds = pd.read_csv(os.path.join(os.getcwd(), relpath)).to_dict(orient = 'list')
+        
+        lower = str(bounds.get("search_bottom")[0])
+      
+        upper = str(bounds.get("search_top")[0])
+        
+        logging.info("Lower bound set to: {l} and upper bound set to {u}".format(l = lower, u = upper))
 
-def get_search_bounds(path): # reference csv file
-    bounds = pd.read_csv(os.path.join(os.getcwd(), "keys/bounds.csv")).to_dict(orient = 'list')
-    lower = str(bounds.get("search_bottom")[0])
-    upper = str(bounds.get("search_top")[0])
-    print("Using lower:", lower, "and upper:", upper)
+    except FileNotFoundError:
+        logging.exception("Bounds file not found")
+      
+    except KeyError:
+        logging.exception("Bounds file formatted incorrectly")
+
     return lower, upper
 
-search_bottom, search_top = get_search_bounds("keys/bounds.csv")
-#======================== check if data already exists =========================
-def recycler(source_list, filename, lower_bound, upper_bound):
-  # check if all conditions = in existing file
-  exist = pd.read_csv(os.path.join(os.getcwd(), "data/in/" , filename))
+#======================== simple data reuser for testing ======================?
+def is_recyclable(data_class, lower_bound, upper_bound, n_cols):
   
-
-e = pd.read_csv(os.path.join(os.getcwd(), "data/in/" ,"stocks.csv"))
-
-min(e["date"]) == search_bottom
-
-#===============================================================================
-stocklist = ["GM", "F", "TSLA", "AN", "MZDAY", "XOM", "TM", "BWA"]
-
-# make 1 df
-def get_ticker_csv(ticker, lower_bound = "2015-01-01", upper_bound = "2020-02-29", key = avkey, save = True):
-    out = pd.DataFrame(columns = ['date'])
-    ts = TimeSeries(key = key, output_format = "pandas")
+  exist = pd.read_csv(os.path.join(os.getcwd(), "data/in/", data_class + ".csv"))
+  
+  logging.exception("{}".format(exist.shape))
+  
+  if lower_bound >= exist["date"].min() and upper_bound <= exist["date"].max() and n_cols <= exist.shape[1] - 1:
+  
+    return True
+  
+  else:
     
+    return False #test
+
+# def appending(filename, lower_bound, upper_bound, n_cols):
+  # should always be true
+  # perform munge sequence
+
+#===============================================================================?
+# stocklist = ["GM", "F", "TSLA", "AN", "MZDAY", "XOM", "TM", "LEA", "BWA", "VC", "GT", "NIO", "HMC", "RACE"]
+
+def get_stock_csv(ticker, lower_bound, upper_bound, key = get_keys("alphavantage_key"), save = True):
+    
+    # trim first of month
+    def trim_fom(df, lower_bound, upper_bound):
+      # always date
+        try:
+            df['date'] = pd.to_datetime(df.date).dt.to_period('M').dt.to_timestamp()
+            df = df.query('@lower_bound <= date <= @upper_bound')
+        
+            logging.debug("Stock successful")
+            
+        except KeyError:
+            logging.exception("Column 'date' not found")
+          
+        return df
+        
+    def cleaner(df, tick):
+        
+        df = (df.sort_index(ascending = True)
+                    .reset_index()
+                    .rename({'4. close': '{}'.format(tick), 
+                             '5. volume': '{}_v'.format(tick)}, 
+                            axis = 'columns')
+                    .loc[:, ['date', '{}'.format(tick), '{}_v'.format(tick)]]
+                    .pipe(trim_fom, lower_bound=lower_bound, upper_bound=upper_bound))
+        return df
+    
+    out = pd.DataFrame(columns = ['date'])
+      
+    ts = TimeSeries(key = key, output_format = "pandas")
+      
     for tick in ticker:
-        data, metadata = ts.get_monthly(symbol = tick)
-        data = data.sort_index().loc[lower_bound:upper_bound]
-        data = data.reset_index()
-        data = data.rename({'4. close': '{0}'.format(tick), 
-                            '5. volume': '{0}_v'.format(tick)}, axis='columns')
-        data = data[['date', '{0}'.format(tick), '{0}_v'.format(tick)]]
-        data['date'] = pd.to_datetime(data.date).dt.to_period('M').dt.to_timestamp()
-        out = out.merge(data, on = 'date', how = 'right')
-        if ticker.index(tick) % 5 == 0: # avoid AV timeout
+        try:
+            data, metadata = ts.get_monthly(symbol = tick)
+            
+            data = cleaner(data, tick)
+          
+        except ValueError:
+            logging.exception("{} is not a valid API call and will be excluded".format(tick))
+            continue
+      
+        out = out.merge(data, on = 'date', how = 'outer')
+        
+        if ticker.index(tick) % 5 == 4: # avoid AV timeout every 5
+            logging.info("Sleeping for 60s to avoid AlphaVantage timeout")
             time.sleep(60)
+            
+    out = out.sort_values(by = 'date', ascending = True, ignore_index = True)
+    
     if save == True:
-        savename = 'stocks.csv'
-        filename = os.path.join(os.getcwd(), "data/in/", savename)
+        
+        filename = os.path.join(os.getcwd(), "./data/in/stocks.csv")
         # save
         out.to_csv(filename, index = False)
-        return print(savename, " (size ", len(out), ", ", len(out.columns), ") saved! \n", sep='')
+          
+        logging.info("stocks.csv", " (size ", len(out), ", ", len(out.columns), ") saved! \n", sep='')
     else:
         return out
 
-# GM
-get_ticker_csv(stocklist, search_bottom, search_top, save = True)
-
-# c confidence, c price index, durable goods /orders?, unemployment
 
 #==============================================================================
-fredpairs = {
-    'unemployment': 'UNRATE',
-    'localunemp': 'SEAT653URN',
-    'oil': 'POILBREUSDM',
-    'ngspot': 'MHHNGSP',
-    'ngf': 'MNGLCP',
-    'nhpi': 'CSUSHPISA',
-    'shpi': 'SEXRSA',
-    'sahmrule': 'SAHMREALTIME',
-    'discount': 'TB3MS',
-    'localrent': 'CUURA423SEHA',
-    'durable': 'DGORDER',
-    '10yinf': 'T10YIEM',
-    'kwhcost': 'APUS49D72610',
-    'sentiment': 'UMCSENT',
-    'new_units': 'WABPPRIVSA',
-    'altsales': 'ALTSALES',
-    'totalsa': 'TOTALSA',
-    'ltrucksa': 'LTRUCKSA',
-    "miles": "TRFVOLUSM227NFWA",
-    "tmaturity": "T10Y2YM",
-    "carcpi": "CUSR0000SETA02",
-    "newhouses": "MSACSR"
-    }
+""" check when data is updated"""
 
-def get_fred_data(names_dict, lower_bound = "2015-01-01", upper_bound = "2020-02-29", save = True):
+# fredpairs = {
+#     'unemp': 'UNRATE',
+#     'unempt5w': 'UEMPLT5',
+#     'unemp5tp14w': 'UEMP5TO14',
+#     'unemp15to26w': 'UEMP15T26',
+#     'unemp15ov':'UEMP15T26',
+#     'oilimport': 'IR10000',
+#     'ngspot': 'MHHNGSP',
+#     'hcpi': 'CUURA400SAH',
+#     'food': 'CUURA423SAF11',
+#     'sahmrule': 'SAHMREALTIME',
+#     'discount': 'TB3MS',
+#     'localrent': 'CUURA423SEHA',
+#     'durable': 'DGORDER',
+#     '10yinf': 'T10YIEM',
+#     'kwhcost': 'APUS49D72610',
+#     'sentiment': 'UMCSENT',
+#     'new_units': 'WABPPRIVSA',
+#     'altsales': 'ALTSALES',
+#     'totalsa': 'TOTALSA',
+#     'ltrucksa': 'LTRUCKSA',
+#     "tmaturity": 'T10Y2YM',
+#     "carcpi": 'CUSR0000SETA02',
+#     "newhouses": 'MSACSR',
+#     'pempltot': 'ADPMNUSNERNSA',
+#     'pemplmanuf': 'ADPMINDMANNERNSA',
+#     'pemplfin': 'ADPMINDFINNERNSA',
+#     'laborpart': 'CIVPART',
+#     'prodmanuf': 'AWHMAN',
+#     'overmanuf': 'AWOTMAN',
+#     'wagemanuf': 'CES3000000008',
+#     'fedsurplus': 'MTSDS133FMS',
+#     'industry': 'IPB50001N',
+#     'industrycg': 'IPCONGD',
+#     'industryut': 'IPG2211A2N',
+#     'caput': 'MCUMFN',
+#     'hcpiurban': 'CPIHOSSL',
+#     'stuffcpi': 'CUSR0000SAC',
+#     'retail': 'RSXFS',
+#     'sales':'TOTBUSSMSA',
+#     'manufsales': 'MNFCTRSMSA',
+#     'manufinv': 'MNFCTRIMSA',
+#     'cbpy30':'HQMCB30YRP',
+#     'fedfundseff':'FEDFUNDS',
+#     'treasurymat1': 'GS1',
+#     'treasurymat5': 'GS5',
+#     'treasurymat7': 'GS7',
+#     'treasurymat10': 'GS10'
+#     }
+      
+def get_fred_csv(names_dict, lower_bound, upper_bound, key = get_keys("fred_key"), save = True):
+  
     # reverse dict
     names = {v: k for k, v in names_dict.items()}
+    
     values = names_dict.values()
     
-    df = pdr.DataReader(values, 'fred', lower_bound, upper_bound)
-    df = df.reset_index()
-    df =  df.rename({'DATE': 'date'}, axis = 'columns')
-    out = df.rename(columns = names)
+    try:
+        df = pdr.DataReader(values, 'fred', lower_bound, upper_bound, api_key = key)
+      
+        out = (df.reset_index()
+                .rename({'DATE': 'date'}, axis = 'columns')
+                .rename(columns = names)
+                .sort_values(by = 'date', ascending = True, ignore_index = True))
+        
+        logging.info("FRED data recieved")
+      
+    except:
+        logging.exception("A FRED call is invalid")
 
+        out = pd.DataFrame({'date': []})
+      
     # rename
-    if save == True:
-        filename = os.path.join(os.getcwd(), "data/in/fred.csv")
+    if save == True and out.empty == False:
+        filename = os.path.join(os.getcwd(), "./data/in/fred.csv")
+        
       # save
         out.to_csv(filename, index = False)
-        return print("fred.csv (size ", len(out), ", ", len(out.columns), ") saved! \n", sep = '')
+        
+        logging.info("fred.csv (size ", len(out), ", ", len(out.columns), ") saved! \n", sep = '')
+    elif out.empty == True:
+        logging.exception("FRED data empty")
+      
     else:
         return out
 
-# get data
-get_fred_data(fredpairs, lower_bound = search_bottom, upper_bound = search_top, save = True)
 
 #==============================================================================
 # get google trends data
 # https://lazarinastoy.com/the-ultimate-guide-to-pytrends-google-trends-api-with-python/#:~:text=Google%20Trends%20is%20a%20public,trending%20results%20from%20google%20trends.
 # requests_args=time.sleep(1)
 
-kw_list = ['new cars', 'used cars', 'car', 'car for sale near me', 'best new cars', 'tips for buying a car']
-
-def get_trends(word_list, lower_bound, upper_bound, save = True):
+# kw_list = ['new cars', 'used cars', 'cars for sale', 'car for sale near me', 'best new cars', 'how to buy a car', 'dealership near me', 'dealerships near me']
+def get_trend_csv(word_list, lower_bound, upper_bound, gusr = get_keys("google_usr"), gpass = get_keys("google_pass"), save = True):
+  
     dataset = []
-    pytrend = TrendReq()
-    for x in range(0,len(word_list)):
-         keywords = [word_list[x]]
-         pytrend.build_payload(
-         kw_list=keywords,
-         cat=0,
-         timeframe=lower_bound + " " + upper_bound,
-         geo='US')
-         data = pytrend.interest_over_time()
-         if not data.empty:
-              data = data.drop(labels=['isPartial'],axis='columns')
-              dataset.append(data)
-    result = pd.concat(dataset, axis=1).add_prefix("g_").reset_index()
-    result.columns = result.columns.str.replace(" ", "_")
     
-    if save == True:
-        filename = os.path.join(os.getcwd(), "data/in/trends.csv")
+    # setup trend obj
+    tob = TrendReq(hl='en-US', timeout=(25), tz=480, retries = 2, backoff_factor = 0.1,
+                    requests_args={'auth':(gusr, gpass)})
+    
+    n_tries = 0
+    
+    if tob.google_rl != None:
+        logging.info("{}".format(tob.google_rl))
+    
+  # try connection thrice
+    while n_tries < 3:
+        try:
+            for x in range(len(word_list)):
+              
+                keyword = [word_list[x]]
+                 
+                tob.build_payload(kw_list = keyword, cat = 0,
+                timeframe = lower_bound + " " + upper_bound,
+                geo = 'US-WA-819')
+                 
+                data = tob.interest_over_time()
+                 
+                if not data.empty:
+                    data = data.drop(labels = ['isPartial'], axis = 'columns')
+                      
+                    dataset.append(data)
+                    
+                    logging.info("{} data recieved".format(word_list[x]))
+
+                if data.empty:
+                    logging.info("{} not found. Continuing.".format(word_list[x]))
+            break          
+        except (ResponseError, requests.exceptions.Timeout):
+            logging.info("Google Trends request failed, opening https://trends.google.com/trends/?geo=US for cars")
+        
+            # open url connection
+            webbrowser.open("https://trends.google.com/trends/explore?date=2015-01-01%202022-09-01&geo=US&q=cars")
+            
+            # seperate requests a bit
+            time.sleep(5)
+        
+        n_tries += 1
+    try:
+        result = pd.concat(dataset, axis = 1).add_prefix("g_").reset_index()
+    
+        result.columns = result.columns.str.replace(" ", "_")
+        
+    except ValueError:
+      
+        logging.exception("Dataframe empty: {}".format(tob.google_rl))
+        
+        result = pd.DataFrame({'date': []})
+        
+    if save == True and result.empty == False:
+        filename = os.path.join(os.getcwd(), "./data/in/trends.csv")
+        
         # save
         result.to_csv(filename, index = False)
-        return print("trends.csv, size", len(result), ":", len(result.columns), ", saved \n")
+        
+        logging.info("trends.csv, size", len(result), ":", len(result.columns), ", saved \n")
     else:
+        logging.info("returning result")
         return result
-    # result.to_csv('search_trends.csv')
-    
-# from pytrendsasync.request import TrendReq
-# import pytrends
+      
 
-# def get_trends2(word_list, lower_bound, upper_bound, save = True):
-    # dataset = []
-    # my_req = pytrend.TrendReq(hl='en-US', tz=360, timeout=10, proxies=['https://34.203.233.13:80',])
-    # 
-    # for word in word_list:
-    #     try:
-    #         my_req.build_payload(
-    #         kw_list=['car'],
-    #         cat=0,
-    #         timeframe=lower_bound + " " + upper_bound, 
-    #         geo='', gprop='')
-    #         data = pytrend.interest_over_time()
-    #         if not data.empty:
-    #             data = data.drop(labels=['isPartial'],axis='columns')
-    #             dataset.append(data)
-    #             time.sleep(6)
-    #     except requests.exceptions.Timeout:
-    #         print("Timeout ocurred")
-    #           
-    # result = pd.concat(dataset, axis=1).add_prefix("g_").reset_index()
-    # result.columns = result.columns.str.replace(" ", "_")
-    # 
-    # if save == True:
-    #     filename = os.path.join(os.getcwd(), "data/in/trends.csv")
-    #     # save
-    #     result.to_csv(filename, index = False)
-    #     return print("trends.csv, size", len(result), ":", len(result.columns), ", saved \n")
-    # else:
-    #     return result
-
-get_trends(kw_list, lower_bound = search_bottom, upper_bound = search_top, save = True) # weird behavior
-
-# pytrend.build_payload(kw_list='new cars', cat=0, timeframe=search_bottom + " " + search_top, geo='US')
-# 
-# data = pytrend.interest_over_time()
-# 
-# pytrends = TrendReq(hl='en-US', tz=360, timeout=(10,25), proxies=['https://34.203.233.13:80',], retries=2, backoff_factor=0.1, requests_args={'verify':False})
-# search_bottom
-# pytrend = TrendReq()
-
-#==============================================================================
-# Immigration?
-# census_key?
-# indeed.com/jobs?q=Epidemiology&l=Orlando%2C FL&vjk=79977da1f9c228ca
-search_top.strftime("% Y")
-
-np.arange(int(datetime.strptime(search_bottom, "%Y-%m-%d").strftime("%Y")), 
-          int(datetime.strptime(search_top, "%Y-%m-%d").strftime("%Y")))
-
-def get_census(code_list, lower_bound, upper_bound, save = True):
-  # census saves years separately
-  year_list = np.arange(int(datetime.strptime(search_bottom, "%Y-%m-%d").strftime("%Y")), 
-                        int(datetime.strptime(search_top, "%Y-%m-%d").strftime("%Y")))
+def fetch_data(stocklist, freddict, trendlist):
   
-  for y in year_list:
-    
+  bottom, top = get_search_bounds()
+
+  get_stock_csv(stocklist, bottom, top, key = get_keys("alphavantage_key"))
   
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+  get_fred_csv(freddict, bottom, top, key = get_keys("fred_key"))
+  
+  get_trend_csv(trendlist, bottom, top)
+

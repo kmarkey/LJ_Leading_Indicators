@@ -1,164 +1,138 @@
+#! /usr/bin/Rscript
+
 library(dplyr)
 library(tidyr)
 library(readr)
 library(logger)
 library(here)
 library(tibble)
+library(stringr)
+library(lubridate)
 
-setwd(here())
+source("process-functions.R")
+
 here()
-# set correlation cutoff
-cor_max <- 0.20
 
-# set lead time in months (3)
-ahead <- 3
+# parse args
+cargs <- commandArgs(trailingOnly = TRUE)
 
-# data subset being used
-train_set <- "all"
+# cargs to env
+parmesean(cargs)
 
-# variable(s) within month to select
-targetvar <- "n"
-
-param_list <- list(month_n.csv = "new cars", month_u.csv = "used cars", month_pre.csv = "pre-COVID",
-                   month_post.csv = "post-COVID", month_all.csv = "all months", n = "total sales", 
-                   tgp = "total gross profit", cp = "cash_price")
-
-# ============================ make logfile ==============================-
-my_logfile <- paste0("./logs/my_log_", Sys.Date(), ".txt")
-
-file.create(my_logfile)
-
-log_appender(appender_tee(my_logfile))
-
+# ============================ make logfile ====================================
+log_setup()
 
 # log_info("Preparing data for {param_list[monthfile]} to estimate {param_list[targetvar]} for the next {ahead} months")
+log_success("{cargs} recieved")
 
-
-log_info("Setting standard for cor_max: {cor_max} and lead time: {ahead} months")
-
-# correlation function
-
-exam <- function(data, threshold = cor_max, interval = "month", targetvar = targetvar) {
-    data <- left_join(month, data, by = "date") %>%
-      dplyr::select(-date)
-    #correlation matrix
-    rac <- as.data.frame(
-      cor(data, use = "pairwise.complete.obs"))
-    out <- rac %>%
-      dplyr::select(n) %>%
-      filter(n != 1) %>%
-      arrange(desc(abs(n)))
-    pass <- filter(out, abs(n) >= threshold)
-    print(pass)
+#================================ read in misc =================================
+if (!exists("blank_m")) {
+  blank_m <- read_csv("./keys/blank_m.csv", show_col_types = FALSE)
+  log_info("Reading in blank_m")
 }
 
-
-lag_it <- function(data) {
-  data %>%
-    dplyr::mutate(across(where(is.numeric), 
-                         .fns = list(lag0 = ~.,
-                                     lag3 = ~ lag(., 3), 
-                                     lag6 = ~ lag(., 6),
-                                     lag9 = ~ lag(., 9),
-                                     lag12 = ~ lag(., 12)),
-                         .names = "{.col}_{.fn}"), 
-                  .keep = "unused")
+if (!exists("wolf")) {
+  wolf <- read_csv("./data/in/wolf.csv")
+  log_info("Reading wolf")
 }
-
-cargs <- commandArgs()
-log_info("Calling some friends")
-source("Transform.R")
-source("Digest.R")
 
 #=================================== fred ======================================
-log_trace("Reading FRED data")
 
-fred <- read_csv("data/in/fred.csv")
+if (!exists("fred")) {
+  temp <- read_csv("data/in/fred.csv", 
+                   col_types = list(date = col_date(format = "%Y-%m-%d"),
+                                    .default = col_double()))
+  
+  fred <- temp %>%
+    trim_it("fred") %>%
+    lag_it()
+  
+  log_trace("Reading in FRED data")
 
-fred <- fred %>%
-  right_join(blank_m, by = "date") %>% # arranges high to low and filters
+}
+
+exam(fred)
+#============================== stocks =========================================
+
+if (!exists("stocks")) {
+  temp <- read_csv("data/in/stocks.csv", 
+                   col_types = list(date = col_date(format = "%Y-%m-%d"),
+                                    .default = col_double()))
+
+stocks <- temp %>%
+  trim_it("stocks") %>%
   lag_it()
 
-exam(fred, cor_max)
-#============================== stocks =========================================
 log_trace("Reading stock data")
 
-stocks <- read_csv("data/in/stocks.csv")
+}
 
-stocks <- blank_m %>%
-  left_join(stocks, by = "date") %>%
-  lag_it()
 
-exam(stocks, cor_max)
+exam(stocks)
 #=============================== google trends =================================
-log_trace("Reading Google Trends data")
 
-trends <- read_csv("data/in/trends.csv")
-
-trends <- blank_m %>%
-  left_join(trends, by = "date") %>% # arranges high to low
-  lag_it()
+if (!exists("trends")) {
+  temp <- read_csv("data/in/trends.csv", 
+                   col_types = list(date = col_date(format = "%Y-%m-%d"),
+                                    .default = col_double()))
+  
+  trends <- temp %>%
+    trim_it("trends") %>% # arranges high to low
+    lag_it()
+  
+  log_trace("Reading Google Trends data")
+  
+}
 
 exam(trends)
-# #=============================== Quandl ========================================
-# log_trace("Reading Quandl data")
-# 
-# quandl <- read_csv("data/in/quandl.csv")
-# 
-# quandl <- blank_m %>%
-#   left_join(quandl, by = "date") %>% # arranges high to low
-#   lag_it()
-# 
-# exam(quandl)
-######## add appts here? #########
+#=============================== binary ========================================
 
-#=============================== random ========================================
-# random <- tibble(random = runif(n = nrow(blank_m), 1, 10),
-#                  date = blank_m$date)
+bin <- cbind(bin = rep(c(0, 1), length.out = nrow(blank_m)), blank_m)
 
-bin <- cbind(bin = rep(c(1, 0, 0), length.out = nrow(blank_m)), blank_m)
-
+log_info("created bin")
 exam(bin)
-
 #============================== t - 1 ==========================================
-
+log_info("read auto")
 auto <- tibble(auto = c(rnorm(13, 
-                              mean(pull(month, targetvar), na.rm = TRUE), 
-                              sd(pull(month, targetvar), na.rm = TRUE)), 
-                        lag(pull(month, targetvar), 1)[-1]), 
+                              mean(pull(wolf, targetvar), na.rm = TRUE), 
+                              sd(pull(wolf, targetvar), na.rm = TRUE)), 
+                        lag(pull(wolf, targetvar), 1)[-1]), 
                date = blank_m$date)
 
 exam(auto)
-#=============================== website views =================================
+#=============================== website views + users =========================
+# downloaded right now
 
-pageviews <- read_csv("data/in/analytics/pageviews.csv", skip = 5)
-
-pageviews <- pageviews %>%
-  dplyr::mutate(date = min(blank_m$date) + months(as.numeric(`Month Index`))) %>%
-  right_join(blank_m, by = "date") %>%
-  summarise(date, pageviews = Pageviews) %>%
-  lag_it()
-
-exam(pageviews)
-#================================= new website users ===========================
-
-new_users <- read_csv("data/in/analytics/new_users.csv", skip = 5)
-
-new_users <- new_users %>%
-  dplyr::mutate(date = min(blank_m$date) + months(as.numeric(`Month Index`))) %>%
-  right_join(blank_m, by = "date") %>%
-  summarise(date, new_users = `New Users`) %>%
-  lag_it()
-
-exam(new_users)
-#=============================== joins =========================================
-log_info("Joining features by month")
-
-scaling <- function(x) { # normalization function
-  return((x - min(x))/(max(x) - min(x)))
+if (!exists("website")) {
+  website <- read_csv("./data/in/website.csv", skip = 5, show_col_types = FALSE)
+  
+  website <- website %>%
+    dplyr::transmute(date = as.Date("2013-04-01") + months(as.numeric(`Month Index`), abbreviate = FALSE),
+                     new_users = `New Users`,
+                     session_dur = as.numeric(`Avg. Session Duration`)/60) %>%# time in minutes
+    trim_it("website") %>%
+    
+    lag_it()
+  
+  log_info("reading web")
+  
 }
 
-complete_dirty <- dplyr::select(month, date, n) %>%
+exam(website)
+# finished with web
+#================================= appointments? ===============================
+
+
+
+
+#=============================== joins =========================================
+log_trace("Joining features by month")
+
+scaling <- function(x) { # normalization function, do later
+  return((x - min(x, na.rm = T))/(max(x,  na.rm = T) - min(x, na.rm = T)))
+}
+
+complete_dirty <- dplyr::select(wolf, date, !!targetvar) %>%
   
   # econ
   left_join(fred, by = "date") %>%
@@ -169,43 +143,36 @@ complete_dirty <- dplyr::select(month, date, n) %>%
   # google results
   left_join(trends, by = "date") %>%
   
-  # random feature
-  # left_join(random, by = "date") %>%
-  
-  # autocorrelation %>%
   # leejohnson.com page views
-  # left_join(pageviews, by = "date") %>%
-  # 
-  # # new website users
-  # left_join(new_users, by = "date") %>%
+  # left_join(website, by = "date") %>%
   
   # random binary
   left_join(bin, by = "date") %>%
   
-  # add more later
-  #######################################
+  # add mnum
+  dplyr::mutate(m_num = as.numeric(month(date))) %>%
+  ###############
   arrange(date) %>%
+  ungroup() %>%
   dplyr::select(-date)
-# mutate(across(is.numeric, ~ scaling(.))) # apply dynamically
 
-sum(is.na(complete_dirty))
+log_info("complete complete")
+# mutate(across(is.numeric, ~ scaling(.))) # apply later
+
+log_info("Compiled {(ncol(complete_dirty) - 2)/5} potential features")
+
 if(sum(is.na(complete_dirty)) != 0) {
-  log_error("Missing values in feature data")
+  log_warn("{sum(is.na(complete_dirty))} missing values in feature data")
 }
 
-the <-  sapply(complete_dirty, function(x)sum(is.na(x)) > 0.1*153)
+#write
+write_csv(complete_dirty, "./data/out/complete.csv")
+#============================ wide cor filter ==================================
 
-the[the == TRUE]
-sum(is.na(complete_dirty))
-nrow(na.omit(complete_dirty))
+log_trace("Doing correlations")
 
-write_csv(complete_dirty, "data/out/complete.csv")
-#============================ wide filter to cor ===============================
-
-log_info("Doing coorelations")
-# change date to month key col
 complete_cor <- complete_dirty %>%
-  cor()
+  cor(use = "pairwise.complete.obs")
 
 # select features in features dict by month lagged
 enumerate <- function(x, threshold) {
@@ -214,35 +181,71 @@ enumerate <- function(x, threshold) {
   return(out)
 }
 
-# select for correlation cutoff
-# feature_dict <- complete_cor[complete_cor['n',] >= cor_max | complete_cor['n',] <= -cor_max, 'n']
-log_info("Removing where cor < {cor_max}, lead > {ahead} months, and removing like feature names")
-
 # select one lag per source that is above ahead and cor cutoff
 feature_dict <- as.data.frame(complete_cor) %>%
-  dplyr::filter(n >= cor_max | n <= -cor_max, n != 1) %>% # correlation cutoff
-  dplyr::select(n) %>% # get correlation of all cols to n
+  
+  dplyr::filter(!!targetvar >= cor_max | !!targetvar <= -cor_max, !!targetvar != 1) %>% # correlation cutoff
+  
+  dplyr::select(!!targetvar) %>% # get correlation of all cols to n
+  
   rownames_to_column("name") %>%
+  
   dplyr::filter(
     as.numeric(str_remove(name, ".*_lag")) >= ahead | is.na(as.numeric(str_remove(name, ".*_lag")))) %>%
-  group_by(str_replace(name, "_lag.*", "")) %>% # group by source
-  slice_max(n) %>% # find features with highest cor to n
+  
+  group_by(str_replace(name, "_lag.*", "")) %>% # group bysource
+  
+  slice_max(get(targetvar)) %>% # find features with highest cor to n
+  
   ungroup() %>%
+  
   dplyr::pull(name) # name to vector
 
-complete_dirty$ngconsum_lag0
-# send best lag value
-features <- dplyr::select(complete_dirty, n, all_of(feature_dict)) %>% # correlation
-  tibble::rowid_to_column("month") %>%
-  na.omit()
+log_info("Cooking down:
+         Slicing at cor = {cor_max} and picking {length(feature_dict)} best feature names
+         Ahead {ahead} months")
 
-write_csv(tibble(month = (max(features$month) + 1):(max(features$month) + ahead), 
-                 bin = bin$bin[(nrow(bin) - (ahead - 1)):nrow(bin)]),
+#============================== prevent flow backup ============================
+# cutting horizontally
+dam <- names(complete_dirty)[which(is.na(complete_dirty[nrow(complete_dirty),]))]
+
+if (length(dam) > 0) {
+  log_warn("{dam} is blocking the pipe! It should be considered an invalid source.")
+}
+
+#================================ set bloating =================================
+if (bloat == FALSE) {
+  
+  blort <- colSums(sapply(complete_dirty, is.na))
+  
+  blort_names <- names(blort[blort <= round(mean(blort))])
+  
+  features <- dplyr::select(complete_dirty, !!targetvar, all_of(feature_dict), -all_of(dam)) %>%
+    dplyr::select(all_of(any_of(blort_names))) %>%
+    tibble::rowid_to_column("month") %>%
+    na.omit()
+} else {
+  
+  features <- dplyr::select(complete_dirty, !!targetvar, all_of(feature_dict), -all_of(dam)) %>% # correlation
+    tibble::rowid_to_column("month") %>%
+    na.omit()
+}
+
+log_info("Boiled off {ncol(complete_dirty) - ncol(features)} columns and {nrow(complete_dirty) - nrow(features)} rows")
+
+# write up supp for bin and month  (probably not used)
+
+m_num_supp <- (features$m_num[nrow(features)] + 1):(features$m_num[nrow(features)] + 3)
+
+write_csv(
+  tibble(month = (max(features$month) + 1):(max(features$month) + ahead), 
+         bin = bin$bin[(nrow(bin) - (ahead - 1)):nrow(bin)],
+         m_num = ifelse(m_num_supp > 12, m_num_supp - 12, m_num_supp)),
           
           "data/out/suppl.csv")
-
 #==================================== write out ================================
-log_info("{ncol(features) - 2} features saved to features.csv, length {nrow(features)}") # -n and month
+log_info("{ncol(features) - 1} features saved to features.csv, length {nrow(features)}") # -n and month
+
 write_csv(features, "data/out/features.csv")
 
-log_appender()
+log_success("end collage.R")
