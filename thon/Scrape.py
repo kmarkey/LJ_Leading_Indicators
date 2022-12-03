@@ -20,6 +20,7 @@ import numpy as np
 import webbrowser
 import logging
 from pytrends.exceptions import ResponseError
+from thon.config import config_logger
 
 ########### Should use keys from LJLI gmail
 #-------------------------

@@ -2,8 +2,12 @@
 import subprocess
 import os
 import logging
-from thon import scrape, configurelog
+from thon.scrape import fetch_data
+from thon.config import config_logger, config_rload
 import datetime
+#===============================================================================
+logfile = "./logs/my_log_" + str(datetime.date.today()) + ".log"
+log = config_logger(logfile)
 
 os.chdir("C:\\Users\\keato\\Documents\\LocalRStudio\\LJ_Leading_Indicators\\")
 
@@ -24,6 +28,8 @@ bloat = False
 
 arglist = ["cor_max {}".format(cor_max), "ahead {}".format(ahead), "train_set {}".format(train_set), 
 "targetvar {}".format(targetvar), "bloat {}".format(bloat)]
+
+log.critical(arglist)
 #===============================================================================
 stocklist = ["GM", "F", "TSLA", "AN", "MZDAY", "XOM", "TM", "LEA", "BWA", "VC", "GT", "NIO", "HMC", "RACE"]
 fredpairs = {
@@ -79,88 +85,19 @@ kw_list = ['new cars', 'used cars', 'cars for sale', 'car for sale near me', 'be
 
 #===============================================================================
 
-def rload(script, arglist):
-  load = ["Rscript", "--vanilla", script, "--args"]
-  load.extend(arglist)
-  
-  return(load)
-
 # ============================ make logfile ====================================
-logfile = "./logs/my_log_" + str(datetime.date.today()) + ".log"
 # logging.basicConfig(format='[%(asctime)s] %(message)s', filename = logfile, encoding='utf-8', level = logging.INFO)
 # 
 # logging.basicConfig(format='[%(asctime)s] %(message)s', encoding='utf-8', level = logging.DEBUG)
 
-log_info = logging.getLogger()
-log_info("hello")
+log.info("hello")
 # log_info("Preparing data for {param_list[monthfile]} to estimate {param_list[targetvar]} for the next {ahead} months")
-log_info("******************run params*****************")
-log_info("partitition = {}".format(train_set))
-log_info("y = {}".format(targetvar))
-log_info("bloat = {}".format(bloat))
-log_info("******************run params*****************")
+log.info("******************run params*****************")
+log.info("partitition = {}".format(train_set))
+log.info("y = {}".format(targetvar))
+log.info("bloat = {}".format(bloat))
+log.info("******************run params*****************")
 
-log_info("Setting the standard for cor_max: {cor_max} and lead time: {ahead} months")
-
-# logging.basicConfig(level=logging.DEBUG)
-# logging.debug('This will get logged')
-
-# def py_log(logfile, filelevel = logging.INFO):
-#   
-#     fmt = '%(levelname)s [%(asctime)s] %(message)s'
-#     datefmt = '%Y-%m-%d %H:%M:%S'
-#     
-#     # create logger
-#     logging.basicConfig(format = fmt, level = filelevel, datefmt = datefmt)
-#     
-#     logger = logging.getLogger(__name__)
-#     
-#     # create file handlers
-#     fh = logging.FileHandler(logfile)
-#     fh.setLevel(filelevel)
-# 
-#     ch = logging.StreamHandler()
-# 
-#     # create formatter
-#     formatter = logging.Formatter(fmt = '%(levelname)s [%(asctime)s] %(message)s', datefmt = '%Y-%m-%d %H:%M:%S')
-#     
-#     # apply formatting
-#     # fh.setFormatter(formatter)
-#     # ch.setFormatter(formatter)
-#     
-#     logger.addHandler(fh)
-#     logger.addhandler(ch)
-#     # logger.setLevel(filelevel)
-#     
-#     return logger
-
-tray = configurelog.get_logger(logfile)
-
-# logging.FileHandler.close(fh)
-tray.handlers.clear()
-tray.info("HELLO")
-log.warning("Hello")
-# create file handler which logs even debug messages
-# fh.setLevel(logging.DEBUG)
-
-    # create logger
-logger = logging.getLogger('simple_example')
-logger.setLevel(logging.DEBUG)
-
-fh = logging.FileHandler(logfile)
-fh.setLevel(logging.DEBUG)
-
-# create formatter
-formatter = logging.Formatter('%(name)s %(levelname)s [%(asctime)s] %(message)s')
-
-# add formatter to ch
-fh.setFormatter(formatter)
-
-# add ch to logger
-logger.addHandler(fh)
-logger.setLevel(logging.DEBUG)
-
-logger.info("please work")
 # print(a.stdout)
 # "Rscript --vanilla -e 'rmarkdown::render(""/path/to/test.Rmd"", ""pdf_document"")'"
 # "Rscript -e 'rmarkdown::render('test.Rmd')'"
@@ -169,13 +106,12 @@ logger.info("please work")
 #     table = proc.stdout.read()
 
 def digest_data(arglist):
-  a = subprocess.run(rload("transform.R", arglist), check = True, text = True) # get stdout??!?!?!
-  b = subprocess.run(rload("fishing.R", arglist), check = True, text = True) # get stdout??!?!?!
-  c = scrape.fetch_data(stocklist, fredpairs, kw_list)
-  d = subprocess.run(rload("collage.R", arglist), check = True, text = True) # get stdout??!?!?!
-  
-scrape.fetch_data(stocklist, fredpairs, kw_list)
+  a = subprocess.run(config_rload("transform.R", arglist), check = True, text = True) # get stdout??!?!?!
+  b = subprocess.run(config_rload("fishing.R", arglist), check = True, text = True) # get stdout??!?!?!
+  c = fetch_data(stocklist, fredpairs, kw_list)
+  d = subprocess.run(config_rload("collage.R", arglist), check = True, text = True) # get stdout??!?!?!
 
+digest_data(arglist)
 
   
 
