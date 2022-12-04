@@ -1,16 +1,5 @@
 #! /usr/bin/Rscript
 #===============================================================================
-# Home sales
-# Consumer confidence index
-# Interest Rates
-# appointments
-# Total vehicle sales retail SAAR (check between)
-# SAAR in washington, King/Snohomish, cross-sell
-# Google "car" searches
-
-# Natural Rate of unemployment (short-term)
-
-# work in python to download online data
 
 library(dplyr)
 library(tidyr)
@@ -35,10 +24,10 @@ cargs <- commandArgs(trailingOnly = TRUE)
 # parse command args and assign
 
 parmesean(cargs)
+
 log_setup()
 
-log_trace("Chewing on parameters")
-
+log_info("Running fishing.R")
 # read in month_all?
 if (!exists("month_all")) {
   month_all <- read_csv("./data/out/month_all.csv", show_col_types = FALSE)
@@ -121,3 +110,5 @@ if (sum(is.na(wolf)) > 0) {
 write_csv(blank_m, "./keys/blank_m.csv")
 write_csv(wolf, "./data/in/wolf.csv")
 log_info("wolf and blank_m saved")
+
+log_info("End fishing.R")

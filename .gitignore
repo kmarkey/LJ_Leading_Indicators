@@ -2,21 +2,23 @@
 **/maps
 
 # Jupyter Notebook checkpoints
-.ipynb_checkpoints
+**/.ipynb_checkpoints
 
 # python cache
-__pycache__/
+**/__pycache__/
 
 # R files
+.Rproj
 .Rdata
 .Rapp.history
-.Rproj.user
 .RDataTmp
 
 .Rhistory
 
 *.log
+*.md
 
-# keys folder
+# folders
 **/keys
 **/data/sour
+**/.Rproj.user

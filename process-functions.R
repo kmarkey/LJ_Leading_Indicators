@@ -6,9 +6,10 @@
 # get command args in named list
 parmesean <- function(cargs) {
   if (length(cargs) == 6) {
-    log_trace("Command args recieved, tucking them in for a nap")
+    log_trace("6 Command args recieved")
     
   } else {
+    
     log_fatal("No command args recieved")
     
     return("Please start some arguments")
@@ -45,6 +46,7 @@ exam <- function(data, threshold = cor_max) {
   
   if (!exists("targetvar", inherits = TRUE)) {
     log_warn("targetvar not found for examination")
+    
     return("Error: targetvar not found")
   }
   out <- as.data.frame(
@@ -82,10 +84,8 @@ lag_it <- function(data) {
 trim_it <- function(data, name, ruler = blank_m) {
   # https://community.rstudio.com/t/using-deparse-substitute-expression-with-pipe/137595
   if (!exists("blank_m", inherits = TRUE)) {
-    log_info("blank_m not found")
+    log_warn("blank_m not found")
   }
-  
-  log_info("ruler is this big! {nrow(ruler)}")
 
   out <- data %>%
     right_join(ruler, by = "date")

@@ -22,18 +22,20 @@ parmesean(cargs)
 # ============================ make logfile ====================================
 log_setup()
 
+log_info("Running collage")
+
+
 # log_info("Preparing data for {param_list[monthfile]} to estimate {param_list[targetvar]} for the next {ahead} months")
-log_success("{cargs} recieved")
 
 #================================ read in misc =================================
 if (!exists("blank_m")) {
   blank_m <- read_csv("./keys/blank_m.csv", show_col_types = FALSE)
-  log_info("Reading in blank_m")
+  log_trace("Reading in blank_m")
 }
 
 if (!exists("wolf")) {
   wolf <- read_csv("./data/in/wolf.csv")
-  log_info("Reading wolf")
+  log_trace("Reading wolf")
 }
 
 #=================================== fred ======================================
@@ -248,4 +250,4 @@ log_info("{ncol(features) - 1} features saved to features.csv, length {nrow(feat
 
 write_csv(features, "data/out/features.csv")
 
-log_success("end collage.R")
+log_success("End collage.R")

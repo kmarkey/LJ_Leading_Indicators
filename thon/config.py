@@ -1,9 +1,9 @@
 import logging
-
+import datetime
 # logging.basicConfig(level=logging.DEBUG)
 # logging.debug('This will get logged')
 
-def config_logger(logfile, filelevel = logging.INFO):
+def config_logger(logfile = "./logs/my_log_" + str(datetime.date.today()) + ".log", filelevel = logging.INFO):
   
     fmt = '%(levelname)s [%(asctime)s] %(message)s'
     datefmt = '%Y-%m-%d %H:%M:%S'

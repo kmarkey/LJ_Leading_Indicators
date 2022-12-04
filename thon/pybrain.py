@@ -4,34 +4,31 @@ import os
 import logging
 from thon.scrape import fetch_data
 from thon.config import config_logger, config_rload
-import datetime
+from datetime import date, time, datetime
+
 #===============================================================================
-logfile = "./logs/my_log_" + str(datetime.date.today()) + ".log"
+logfile = "./logs/my_log_" + str(date.today()) + ".log"
 log = config_logger(logfile)
 
 os.chdir("C:\\Users\\keato\\Documents\\LocalRStudio\\LJ_Leading_Indicators\\")
 
-# set feature correlation cutoff
-cor_max = 0.20
+fetch_args = {"cor_max": 0.20, # set feature correlation cutoff
+              "ahead": 3, # set lead time in months (3)
+              "train_set": "all", # data subset being used
+              "targetvar": "n", # variable of interest
+              "bloat": False # favor wide over long feature data
+}
 
-# set lead time in months (3)
-ahead = 3
+arglist = ["cor_max {}".format(fetch_args["cor_max"]), 
+           "ahead {}".format(fetch_args["ahead"]), 
+           "train_set {}".format(fetch_args["train_set"]), 
+           "targetvar {}".format(fetch_args["targetvar"]), 
+           "bloat {}".format(fetch_args["bloat"])]
 
-# data subset being used
-train_set = "all"
 
-# variable(s) within month to select
-targetvar = "n"
-
-# favor wide over long feature data
-bloat = False
-
-arglist = ["cor_max {}".format(cor_max), "ahead {}".format(ahead), "train_set {}".format(train_set), 
-"targetvar {}".format(targetvar), "bloat {}".format(bloat)]
-
-log.critical(arglist)
 #===============================================================================
 stocklist = ["GM", "F", "TSLA", "AN", "MZDAY", "XOM", "TM", "LEA", "BWA", "VC", "GT", "NIO", "HMC", "RACE"]
+
 fredpairs = {
     'unemp': 'UNRATE',
     'unempt5w': 'UEMPLT5',
@@ -81,21 +78,14 @@ fredpairs = {
     'treasurymat7': 'GS7',
     'treasurymat10': 'GS10'
     }
+    
 kw_list = ['new cars', 'used cars', 'cars for sale', 'car for sale near me', 'best new cars', 'how to buy a car', 'dealership near me', 'dealerships near me']
-
 #===============================================================================
-
-# ============================ make logfile ====================================
-# logging.basicConfig(format='[%(asctime)s] %(message)s', filename = logfile, encoding='utf-8', level = logging.INFO)
-# 
-# logging.basicConfig(format='[%(asctime)s] %(message)s', encoding='utf-8', level = logging.DEBUG)
 
 log.info("hello")
 # log_info("Preparing data for {param_list[monthfile]} to estimate {param_list[targetvar]} for the next {ahead} months")
 log.info("******************run params*****************")
-log.info("partitition = {}".format(train_set))
-log.info("y = {}".format(targetvar))
-log.info("bloat = {}".format(bloat))
+log.info(str(fetch_args))
 log.info("******************run params*****************")
 
 # print(a.stdout)
@@ -111,10 +101,10 @@ def digest_data(arglist):
   c = fetch_data(stocklist, fredpairs, kw_list)
   d = subprocess.run(config_rload("collage.R", arglist), check = True, text = True) # get stdout??!?!?!
 
+# def run_models():
+#   
+# def indicate():
+
 digest_data(arglist)
-
-  
-
-
 
 

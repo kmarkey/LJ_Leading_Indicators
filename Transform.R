@@ -19,6 +19,7 @@ cargs <- commandArgs(trailingOnly = TRUE)
 parmesean(cargs)
 
 log_setup()
+log_info("Running transform.R")
 #================================= first pass ==================================
 # set dir
 here()
@@ -133,7 +134,9 @@ month_all <- KDAt %>%
 
 if (sum(is.na(month_all)) > 0) {
   log_warn("{sum(is.na(month_all))} values missing from month_all!")
-} else log_info("month_all is pristine")
+} else {
+  log_info("month_all is pristine")
+  }
 #============================= seasonal adjustment =============================
 # slight seasonal adj?
 
@@ -142,3 +145,5 @@ log_trace("No seasonal adjustment")
 log_trace("Saving monthly data")
 
 write_csv(month_all, "./data/out/month_all.csv")
+
+log_info("End transform.R")
