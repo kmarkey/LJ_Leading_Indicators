@@ -8,12 +8,12 @@
 **/__pycache__/
 
 # R files
-.Rproj
-.Rdata
-.Rapp.history
-.RDataTmp
+*.Rproj
+*.Rdata
+*.Rapp.history
+*.RDataTmp
 
-.Rhistory
+*.Rhistory
 
 *.log
 *.md
