@@ -5,8 +5,10 @@
 
 # get command args in named list
 parmesean <- function(cargs) {
-  if (length(cargs) == 6) {
-    log_trace("6 Command args recieved")
+  
+  if (length(t) > 0) {
+    
+    log_info("{length(t)} Command args recieved")
     
   } else {
     
@@ -19,23 +21,77 @@ parmesean <- function(cargs) {
   
   # remove --args from args
   plist <- t[t != "--args"]
-  
   # extract names
   names(plist) <- sapply(plist,"[[", 1)
+  
   plist <- sapply(plist,"[[", 2)
   
   # assign with correct data type into env
-  assign("cor_max", as.numeric(plist[["cor_max"]]), inherits = TRUE)
-  assign("ahead", as.numeric(plist[["ahead"]]), inherits = TRUE)
-  assign("train_set", as.character(plist[["train_set"]]), inherits = TRUE)
-  assign("targetvar", as.character(plist[["targetvar"]]), inherits = TRUE)
-  assign("bloat", as.logical(plist[["bloat"]]), inherits = TRUE)
+  to_env <- function(name, type) {
+      if (name %in% names(plist)) {
+          assign(name, type(plist[[name]]), inherits = TRUE)
+      
+      } else {
+          log_warn("No argument specified for {name}")
+      }
+    
+    
+  }
+  
+  to_env("cor_max", as.numeric)
+  to_env("ahead", as.numeric)
+  to_env("train_set", as.character)
+  to_env("targetvar", as.character)
+  to_env("bloat", as.logical)
+  to_env("newdata", as.character)
 }
 
 # remove character class and change parsing
 pear <- function(x) {
   x <- gsub("[()\\s,]", "", x)
   x <- as.numeric(x)
+}
+
+clean_kda <- function(data) {
+  
+  old_names <- names(data)
+  
+  new_names <- c("date", "dealnum", "vstock", "caryear", "make",
+                 "model", "nu", "front_gross_profit", "back_gross_profit",
+                 "total_gross_profit", "cash_price", "pl", "sale_type",
+                 "salesman", "salesmanager", "fimanager")
+  
+  if (length(old_names) == length(new_names)) {
+    data <- rename_at(data, old_names, ~ new_names)
+    
+  } else {
+    log_warn("Cannot change column names")
+  }
+  
+  log_trace("Juggling numeric columns")
+  
+  # clean all and make numeric
+  data <- mutate(data, across(c(front_gross_profit,
+                                back_gross_profit,
+                                total_gross_profit,
+                                cash_price), 
+                              pear),
+                 date = as.Date(date, format = "%m/%d/%Y")) # change date
+  
+  #======================- create model year variable ============================
+  # highest possible model year = current year + 1, assuming age < 100
+  max_model_year <- as.numeric(substr(year(Sys.Date()) + 1, 3, 4))
+  
+  data <- data %>%
+    
+    mutate(caryear = as.numeric(
+      ifelse(str_length(caryear) == 1, str_c("200", caryear), 
+             ifelse(str_length(caryear) == 2 & caryear > max_model_year, str_c("19", caryear),
+                    str_c("20", caryear))))
+    ) %>%
+    mutate(across(where(is.numeric), ~replace_na(., 0))) %>%
+    arrange(date)
+  
 }
 
 # eval with wolf
@@ -84,6 +140,7 @@ lag_it <- function(data) {
 trim_it <- function(data, name, ruler = blank_m) {
   # https://community.rstudio.com/t/using-deparse-substitute-expression-with-pipe/137595
   if (!exists("blank_m", inherits = TRUE)) {
+    
     log_warn("blank_m not found")
   }
 
@@ -97,11 +154,16 @@ trim_it <- function(data, name, ruler = blank_m) {
 
 log_setup <- function() {
   my_logfile <- paste0("./logs/my_log_", Sys.Date(), ".log")
+  
   if  (file.exists(my_logfile)) {
+    
     log_appender(appender_tee(my_logfile))
+    
   } else {
+    
     file.create(my_logfile)
     log_appender(appender_tee(my_logfile))
+    
   }
   print(paste0("Log created at ", my_logfile))
 }

@@ -25,7 +25,7 @@ arglist = ["cor_max {}".format(fetch_args["cor_max"]),
            "targetvar {}".format(fetch_args["targetvar"]), 
            "bloat {}".format(fetch_args["bloat"])]
 
-
+arglist
 #===============================================================================
 stocklist = ["GM", "F", "TSLA", "AN", "MZDAY", "XOM", "TM", "LEA", "BWA", "VC", "GT", "NIO", "HMC", "RACE"]
 
@@ -34,7 +34,7 @@ fredpairs = {
     'unempt5w': 'UEMPLT5',
     'unemp5tp14w': 'UEMP5TO14',
     'unemp15to26w': 'UEMP15T26',
-    'unemp15ov':'UEMP15T26',
+    'unemp27ov':'UEMP27OV',
     'oilimport': 'IR10000',
     'ngspot': 'MHHNGSP',
     'hcpi': 'CUURA400SAH',
@@ -78,8 +78,8 @@ fredpairs = {
     'treasurymat7': 'GS7',
     'treasurymat10': 'GS10'
     }
-    
-kw_list = ['new cars', 'used cars', 'cars for sale', 'car for sale near me', 'best new cars', 'how to buy a car', 'dealership near me', 'dealerships near me']
+
+glist = ['new cars', 'used cars', 'cars for sale', 'car for sale near me', 'best new cars', 'how to buy a car', 'dealership near me', 'dealerships near me']
 #===============================================================================
 
 log.info("hello")
@@ -98,10 +98,12 @@ log.info("******************run params*****************")
 def digest_data(arglist):
   a = subprocess.run(config_rload("transform.R", arglist), check = True, text = True) # get stdout??!?!?!
   b = subprocess.run(config_rload("fishing.R", arglist), check = True, text = True) # get stdout??!?!?!
-  c = fetch_data(stocklist, fredpairs, kw_list)
+  c = fetch_data(stocklist, fredpairs, glist)
   d = subprocess.run(config_rload("collage.R", arglist), check = True, text = True) # get stdout??!?!?!
 
-# def run_models():
+# def train_models():
+
+# def eval_models()
 #   
 # def indicate():
 

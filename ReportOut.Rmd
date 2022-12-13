@@ -21,12 +21,14 @@ editor_options:
 ```{r setup}
 library(here)
 library(ggplot2)
+library(stringr)
 library(lubridate)
 library(dplyr)
 library(logger)
 library(here)
 library(scales)
 library(tidyr)
+library(readr)
 ```
 
 ### Project Aim:
@@ -62,8 +64,9 @@ c)
 ### 5. Indicator Index
 
 ```{r, label="Set Bounds", include=FALSE, echo = FALSE}
+
+KDAc <- read_csv("data/sour/KDAc.csv")
 here()
-source("Collage.R")
 
 # generated on
 today <- Sys.Date()
@@ -72,7 +75,7 @@ today <- Sys.Date()
 lmonth <- floor_date(floor_date(today, unit = "month") - 1, unit = "month")
 
 # bounds of last month on record
-pmonth <- floor_date(floor_date(max(KDAt$date), unit = "month") - 1, unit = "month")
+pmonth <- floor_date(floor_date(max(KDAc$date), unit = "month") - 1, unit = "month")
 pomonth <- ceiling_date(pmonth, unit = "month") - 1
 
 nmonth <- pomonth + 1
@@ -129,15 +132,6 @@ ljtheme <- function(){
   }
 
 theme_set(ljtheme())
-
-integer_breaks <- function(n = 5, ...) {
-  fxn <- function(x) {
-    breaks <- floor(pretty(x, n, ...))
-    names(breaks) <- attr(breaks, "labels")
-    breaks
-  }
-  return(fxn)
-}
 ```
 
 ## 1. Digestion
@@ -186,7 +180,7 @@ target metric. Based on
 # Change in sales for the 5 most common vehicles new/used
 
 # biggest movers from last month ??
-newmonth <- KDAt %>%
+newmonth <- KDAc %>%
   dplyr::filter(nu == "NEW", date >= pmonth - months(1), date <= pomonth) %>% # this and last month
   dplyr::mutate(carname = str_c(make, " ", model, " ", caryear), .keep = 'unused') %>%
   dplyr::group_by(carname, month = ifelse(month(date) == month(pmonth), "current", "last")) %>% # change month names
@@ -211,7 +205,7 @@ newmonth %>%
        y = "Change In Sales This Month")
 
 # not grouped by year!???
-usedmonth <- KDAt %>%
+usedmonth <- KDAc %>%
   dplyr::filter(nu == "USED", date >= pmonth - months(1), date <= pomonth) %>% # this and last month
   dplyr::mutate(carname = str_c(make, " ", model), .keep = 'unused') %>%
   dplyr::group_by(carname, month = ifelse(month(date) == month(pmonth), "current", "last")) %>% # change month names
@@ -221,7 +215,6 @@ usedmonth <- KDAt %>%
   dplyr::mutate(change = current - last) %>%
   ungroup() %>%
   slice_max(n = 10, order_by = abs(change), with_ties = FALSE)
-
 
 usedmonth %>%
   ggplot() + geom_segment(aes(x = reorder(carname, last), y = last, xend = carname, yend = current, color = change < 0),
@@ -241,13 +234,12 @@ mlabs <- function(x) {
   paste0(month(pmonth - months(as.numeric(x)), label = TRUE, abbr = FALSE))
 }
 
-mgroups <- KDAt %>%
+mgroups <- KDAc %>%
   dplyr::mutate(mgroup = factor(month(pmonth) - month(date), ordered = TRUE), theyear = year(date)) %>%
   group_by(mgroup, theyear) %>%
   summarise(ycount = n(), mgroup, theyear) %>%
   distinct() %>%
   dplyr::filter(theyear >= year(pmonth) - 1, mgroup <= 5 && mgroup >= 0)
-
 
 ggplot() + geom_bar(data = mgroups %>% dplyr::filter(theyear == year(pmonth)), 
                     aes(x = mgroup, y = ycount), width = 0.7,
@@ -270,7 +262,7 @@ ggplot() + geom_bar(data = mgroups %>% dplyr::filter(theyear == year(pmonth)),
 Compare this month to other years
 
 ```{r, label="This Month's Rank Among Other Years"}
-calmonth <- KDAt %>%
+calmonth <- KDAc %>%
   dplyr::filter(month(date) == month(pmonth), year(date) <= year(pmonth)) %>%
   group_by(theyear = year(date)) %>%
   dplyr::transmute(`Avg. Cash Price` = mean(cash_price, na.rm = TRUE),
@@ -299,7 +291,7 @@ ggplot(calmonth) +
   geom_text(aes(x = theyear, y = rankval/2, label = ranks), color = white) +
   scale_fill_gradient2(midpoint = 3, low = red, mid = llightblue,
                      high = blue) +
-  labs(title = paste0("Rankong the ", month(pmonth, label = TRUE, abbr = FALSE), " Months"),
+  labs(title = paste0("Ranking the ", month(pmonth, label = TRUE, abbr = FALSE), " Months"),
        subtitle = paste0("For ", repfor),
        x = '',
        y = '') +
@@ -314,7 +306,7 @@ salesman_metric <- "cp_a" # button?
 
 salesman_metric_dict <- c(n = "Total Sales", fgp_a = "Avg. Front Gross Profit", cp_a = "Avg. Cash Price")
 
-salespeople <- KDAt %>%
+salespeople <- KDAc %>%
   dplyr::filter(date >= pmonth, date <= pomonth) %>%
   group_by(salesman) %>%
   dplyr::transmute(cp_a = mean(cash_price, na.rm = TRUE), 
@@ -352,7 +344,7 @@ salespeople %>%
         axis.ticks.x = element_blank())
   
 # best fi manager by back gross
-fipeople <- KDAt %>%
+fipeople <- KDAc %>%
   dplyr::filter(date >= pmonth, date <= pomonth) %>%
   group_by(fimanager) %>%
   dplyr::transmute(bgp_a = mean(back_gross_profit, na.rm = TRUE), fimanager) %>%
@@ -384,7 +376,7 @@ Based on past business performance cycles, months + years
 ```{r, label="Next Month"}
 # years on right, months on left?
 #
-nmonth_metric <- "Back Goss"
+nmonth_metric <- "Back Gross"
 
 estimates_for <- paste0(month(nmonth, abbr = FALSE, label = TRUE), ", ", year(nmonth))
 
@@ -405,10 +397,10 @@ thismonthinsert <- list(group = 2,
 
 # previous months + years for next month
 
-nmonth_df <- bind_rows(KDAt %>% # last 2 months
+nmonth_df <- bind_rows(KDAc %>% # last 2 months
                    dplyr::filter(date >= pmonth - months(1), date < pomonth) %>%
                    dplyr::mutate(group = 1, tframe = as.character(month(date, label = TRUE, abbr = FALSE))),
-                 KDAt %>% # last 2 years
+                 KDAc %>% # last 2 years
                    dplyr::filter(month(date) == month(pmonth) + 1, year(date) >= year(pmonth) - 2, date < pomonth) %>%
                    dplyr::mutate(group = 3, tframe = as.character(year(date)))) %>%
   group_by(group, tframe) %>%
@@ -426,7 +418,7 @@ nmonth_df <- bind_rows(KDAt %>% # last 2 months
                 b = ifelse(group != 2, coef(lm(value ~ as.numeric(tframe)))[1], 0))
 
 if (!(nmonth_metric %in% nmonth_df$class)) {
-  warn("Enter a valid class")
+  warning("Enter a valid class")
 } 
 
 # prediction function
@@ -481,8 +473,8 @@ nmonth_df %>%
 ### 2. Summary statistics
 
 ```{r Summary}
-summary(KDAt)
-glimpse(KDAt)
+summary(KDAc)
+glimpse(KDAc)
 ```
 
 #### We have some NA's, or empty spaces, in the data. This could be for a

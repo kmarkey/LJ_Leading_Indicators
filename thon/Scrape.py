@@ -22,7 +22,6 @@ import webbrowser
 from pytrends.exceptions import ResponseError
 from thon.config import config_logger
 
-
 ########### Should use keys from LJLI gmail
 #-------------------------
 
@@ -49,7 +48,7 @@ def get_keys(key_class, relpath = "./keys/keys.txt"):
       
     try:
           
-            return keys[key_class]
+        return keys[key_class]
           
     except KeyError:
       
@@ -60,6 +59,12 @@ def get_keys(key_class, relpath = "./keys/keys.txt"):
         log.error("Error getting keys")
 
 # https://github.com/RomelTorres/alpha_vantage
+
+get_keys("alphavantage_key")
+
+with open(os.path.join(os.getcwd(), relpath)) as f:
+    for line in f:
+        line.split(",")
 
 def get_search_bounds(relpath = "./keys/bounds.csv"):
   
@@ -83,7 +88,7 @@ def get_search_bounds(relpath = "./keys/bounds.csv"):
         log.exception("Bounds file formatted incorrectly")
 
     return lower, upper
-
+get_search_bounds()
 #======================== simple data reuser for testing ======================?
 # def is_recyclable(data_class, lower_bound, upper_bound, n_cols):
 #   
@@ -226,7 +231,7 @@ def get_fred_csv(names_dict, lower_bound, upper_bound, key = get_keys("fred_key"
     
     logfile = "./logs/my_log_" + str(date.today()) + ".log"
     log = config_logger(logfile)
-  
+    
     # reverse dict
     names = {v: k for k, v in names_dict.items()}
     
@@ -292,8 +297,8 @@ def get_trend_csv(word_list, lower_bound, upper_bound, gusr = get_keys("google_u
                 keyword = [word_list[x]]
                  
                 tob.build_payload(kw_list = keyword, cat = 0,
-                timeframe = lower_bound + " " + upper_bound,
-                geo = 'US-WA-819')
+                                  timeframe = lower_bound + " " + upper_bound,
+                                  geo = 'US-WA-819')
                  
                 data = tob.interest_over_time()
                  

@@ -10,7 +10,12 @@ library(here)
 library(tidyr)
 library(readxl)
 
+
 source("process-functions.R")
+
+log_setup()
+
+log_info("Running transform.R")
 
 #============================== read cargs and log ============================
 cargs <- commandArgs(trailingOnly = TRUE)
@@ -18,8 +23,8 @@ cargs <- commandArgs(trailingOnly = TRUE)
 # parse command args and assign
 parmesean(cargs)
 
-log_setup()
-log_info("Running transform.R")
+
+
 #================================= first pass ==================================
 # set dir
 here()
@@ -42,47 +47,32 @@ here()
 #                       trim_ws = TRUE, col_names = TRUE)
 # 
 
-KDAt <- read_csv("data/sour/KDAt.csv", show_col_types = FALSE)
+if (exists("newdata")) {
+    adata <- read_csv(newdata)
+    
+    log_info("Reading in newdata")
+    
+    adata <- clean_kda(adata)
+    
+    if (max(KDAt$date) < min(adata$date)) {
+          # append data
+          KDAt <- read_csv("data/sour/KDAt.csv", show_col_types = FALSE)
+          log_info("Appending {nrow(adata)} rows to KDAt")
+          
+          write_csv(adata, "./data/sour/KDAt.csv", append = TRUE)
+    }
+
+}
+
+#  read in new and clean
+KDAt <- read_csv("data/sour/KDAt.csv", show_col_types = FALSE) %>%
+  clean_kda()
+
+# write out clean for reporting
+write_csv(KDAt, "./data/sour/KDAc.csv")
 
 log_info("Opened KDAt with {nrow(KDAt)} rows and {ncol(KDAt)} columns")
 
-# verbose name change
-old_names <- names(KDAt)
-
-new_names <- c("date", "dealnum", "vstock", "caryear", "make",
-             "model", "nu", "front_gross_profit", "back_gross_profit",
-             "total_gross_profit", "cash_price", "pl", "sale_type",
-             "salesman", "salesmanager", "fimanager")
-
-if (length(old_names) == length(new_names)) {
-  KDAt <- rename_at(KDAt, old_names, ~ new_names)
-  
-} else {
-  log_warn("Cannot change column names")
-}
-
-log_trace("Juggling numeric columns")
-
-# clean all and make numeric
-KDAt <- mutate(KDAt, across(c(front_gross_profit,
-                          back_gross_profit,
-                          total_gross_profit,
-                          cash_price), 
-                          pear),
-                 date = as.Date(date, format = "%m/%d/%Y")) # change date
-
-#======================- create model year variable ============================
-# highest possible model year = current year + 1, assuming age < 100
-max_model_year <- as.numeric(substr(year(Sys.Date()) + 1, 3, 4))
-
-KDAt <- KDAt %>%
-  
-  mutate(caryear = as.numeric(
-    ifelse(str_length(caryear) == 1, str_c("200", caryear), 
-                       ifelse(str_length(caryear) == 2 & caryear > max_model_year, str_c("19", caryear),
-                              str_c("20", caryear))))
-  ) %>%
-  arrange(date)
 
 #================================= date bounds =================================
 log_trace("Fencing in dates")
@@ -92,7 +82,7 @@ log_trace("Fencing in dates")
 if (min(KDAt$date) == as.Date("2010-01-02")) {
   min_date <- min(KDAt$date) - 1 # first day is the 1st of the month?
 } else { # should never happen
-log_warn("Error synchronizing dates??")
+  log_warn("Error synchronizing dates??")
 }
 
 # last eligible date

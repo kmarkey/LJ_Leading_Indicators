@@ -22,11 +22,11 @@ def rollover(feature_importance_df, complete_path = "./data/out/complete.csv", a
     impidx = feature_importance_df[feature_importance_df["importance"] != 0].index
     names = []
     for i in list(impidx):
-        if i not in ["month", "bin"]:
+        if i not in ["month", "bin", "mnum"]:
             names.append(i.split("_lag")[0] + "_lag" + str(pd.to_numeric(re.sub(r".*_lag", "", i)) - ahead))
         
     important = complete.filter(names) #### 
-    important.columns = (x for x in list(impidx) if x not in ["month", "bin"]) #### AHHHHH BAD
+    important.columns = (x for x in list(impidx) if x not in ["month", "bin", "m_num"]) #### AHHHHH BAD
     important = important.tail(ahead)
     important.set_axis(np.arange(ahead), inplace = True)
     
@@ -37,7 +37,7 @@ def rollover(feature_importance_df, complete_path = "./data/out/complete.csv", a
     dummy = pd.DataFrame(0, index=np.arange(len(important)), columns=unimpidx).tail(ahead)
     dummy.set_axis(np.arange(ahead), inplace = True)
     
-    supp = pd.read_csv("data/out/suppl.csv")
+    supp = pd.read_csv("./data/out/suppl.csv")
     supp.set_axis(list(dummy.index), inplace = True)
     
     if ("bin" in list(impidx)) & ("month" in list(impidx)):
@@ -71,7 +71,7 @@ def tree_importance(model, cols, save = False):
         print("Model type not supported")
 
     if save == True:
-        imp.to_csv("data/out/treefeatures.csv")
+        imp.to_csv("./data/out/treefeatures.csv")
     else:
         return imp
     
@@ -79,7 +79,9 @@ def tree_importance(model, cols, save = False):
 def plot_eval(prediction, actual):
     plt.plot(actual)
     plt.plot(prediction)
-    print(mean_squared_error(prediction, actual))
+    mse = mean_squared_error(prediction, actual)
+    print(mse)
+    print(mse/len(prediction))
     
 def bake_pred(train_y, test_y, pred_y):
     train_y = pd.DataFrame(train_y, columns = ['n'])

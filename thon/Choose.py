@@ -18,10 +18,10 @@ from sklearn.model_selection import GridSearchCV
 # os.chdir('C:\\Users\\keato\\Documents\\LocalRStudio\\LJ_Leading_Indicators')
 #------------------
 
-def choose_features(path, cv_range = (0, 5), scale = True, save = True):
+def choose_features(path, targetvar= 'n', alpha_range = (0, 5), scale = True, save = True):
     data = pd.read_csv(path)
 
-    X, y = data.drop(columns = ['n']), data['n']
+    X, y = data.drop(columns = [targetvar]), data[targetvar]
     
     if scale == True:
         pipeline = Pipeline([
@@ -34,21 +34,20 @@ def choose_features(path, cv_range = (0, 5), scale = True, save = True):
         ])
     
     search = GridSearchCV(pipeline,
-                      {'model__alpha':np.arange(cv_range[0], cv_range[1], 0.5)},
-                      cv = 5,
+                      {'model__alpha':np.arange(alpha_range[0], alpha_range[1], 0.5)},
+                      cv = 10,
                       scoring = 'neg_mean_squared_error') # no stdout
     search.fit(X, y)
     
     coef = search.best_estimator_[1].coef_
     out = X.iloc[:, coef != 0]
-    out.columns
-    out.insert(0, 'n', y, True)
-    out.insert(0, 'month', X['month'], False)
+
+    out.insert(0, targetvar, y, True)
     
     print("Alpha estimate:", search.best_params_)
     
     if save == True:
-        out.to_csv("data/out/lasso.csv")
+        out.to_csv("./data/out/lasso.csv")
         print('lasso.csv (', len(out), ', ', len(out.columns), ') saved! \n', search.best_params_, sep = '')
     else:
         print(len(out.columns), 'features selected \n', sep = ' ')
