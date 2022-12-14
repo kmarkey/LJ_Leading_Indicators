@@ -10,20 +10,18 @@ library(here)
 library(tidyr)
 library(readxl)
 
-
 source("process-functions.R")
+
+#============================== read cargs and log =============================
 
 log_setup()
 
 log_info("Running transform.R")
 
-#============================== read cargs and log ============================
 cargs <- commandArgs(trailingOnly = TRUE)
 
 # parse command args and assign
 parmesean(cargs)
-
-
 
 #================================= first pass ==================================
 # set dir
@@ -48,6 +46,7 @@ here()
 # 
 
 if (exists("newdata")) {
+    
     adata <- read_csv(newdata)
     
     log_info("Reading in newdata")
@@ -55,18 +54,21 @@ if (exists("newdata")) {
     adata <- clean_kda(adata)
     
     if (max(KDAt$date) < min(adata$date)) {
-          # append data
-          KDAt <- read_csv("data/sour/KDAt.csv", show_col_types = FALSE)
-          log_info("Appending {nrow(adata)} rows to KDAt")
-          
-          write_csv(adata, "./data/sour/KDAt.csv", append = TRUE)
+        
+        # append data
+        KDAt <- read_csv("./data/sour/KDAt.csv", show_col_types = FALSE)
+        
+        log_info("Appending {nrow(adata)} rows to KDAt")
+        
+        write_csv(adata, "./data/sour/KDAt.csv", append = TRUE)
+        
+        }
     }
 
-}
-
 #  read in new and clean
-KDAt <- read_csv("data/sour/KDAt.csv", show_col_types = FALSE) %>%
-  clean_kda()
+KDAt <- read_csv("./data/sour/KDAt.csv", show_col_types = FALSE) %>%
+    
+    clean_kda()
 
 # write out clean for reporting
 write_csv(KDAt, "./data/sour/KDAc.csv")
@@ -80,22 +82,30 @@ log_trace("Fencing in dates")
 # this isn't going to change
 # first eligible date 
 if (min(KDAt$date) == as.Date("2010-01-02")) {
-  min_date <- min(KDAt$date) - 1 # first day is the 1st of the month?
+    
+    min_date <- min(KDAt$date) - 1 # first day is the 1st of the month?
+    
 } else { # should never happen
-  log_warn("Error synchronizing dates??")
+    
+    log_warn("Error synchronizing dates??")
+    
 }
 
 # last eligible date
 if (max(KDAt$date) == ceiling_date(max(KDAt$date), unit = "month") - 1) {
-  max_date <- max(KDAt$date) # last day is last of the month?
-  
+    
+    max_date <- max(KDAt$date) # last day is last of the month?
+    
 } else { # else get last full month
-  max_date <- floor_date(max(KDAt$date), unit = "month") - 1
+    
+    max_date <- floor_date(max(KDAt$date), unit = "month") - 1
+    
 }
 
 log_info("Data available from {min_date} to {max_date}")
 
 #================================ by month =====================================
+
 # no imputation
 log_trace("Grabbing months")
 
@@ -123,12 +133,15 @@ month_all <- KDAt %>%
   distinct()
 
 if (sum(is.na(month_all)) > 0) {
-  log_warn("{sum(is.na(month_all))} values missing from month_all!")
+    
+    log_warn("{sum(is.na(month_all))} values missing from month_all!")
+    
 } else {
-  log_info("month_all is pristine")
-  }
+    
+    log_info("month_all is pristine")
+    
+}
 #============================= seasonal adjustment =============================
-# slight seasonal adj?
 
 log_trace("No seasonal adjustment")
 

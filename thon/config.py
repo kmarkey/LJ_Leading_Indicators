@@ -1,9 +1,9 @@
 import logging
-import datetime
-# logging.basicConfig(level=logging.DEBUG)
-# logging.debug('This will get logged')
+import os
+from datetime import date, datetime as dt 
 
-def config_logger(logfile = "./logs/my_log_" + str(datetime.date.today()) + ".log", filelevel = logging.INFO):
+
+def config_logger(logfile = "./logs/my_log_" + str(date.today()) + ".log", filelevel = logging.INFO):
   
     fmt = '%(levelname)s [%(asctime)s] %(message)s'
     datefmt = '%Y-%m-%d %H:%M:%S'
@@ -15,21 +15,36 @@ def config_logger(logfile = "./logs/my_log_" + str(datetime.date.today()) + ".lo
     logger = logging.getLogger(__name__)
     
     # create file handlers
-    fh = logging.FileHandler(logfile)
-    fh.setFormatter(formatter)
-
+    try:
+        
+        fh = logging.FileHandler(logfile)
+        fh.setFormatter(formatter)
+        
+    except:
+        
+        f = open(logfile, "w+")
+        fh = logging.FileHandler(logfile)
+        fh.setFormatter(formatter)
+        
     ch = logging.StreamHandler()
     ch.setFormatter(formatter)
 
     # add  handlers
     logger.handlers.clear()
-    logger.addHandler(fh)
     logger.addHandler(ch)
+    logger.addHandler(fh)
     
     # set level
     logger.setLevel(filelevel)
 
     return logger
+
+def close_logger(_logger):
+    
+    return _logger
+    # for h in _logger.handlers:
+    #     _logger.removeHandler(h)
+    #     h.close()
 
 def config_rload(script, arglist):
   load = ["Rscript", "--vanilla", script, "--args"]

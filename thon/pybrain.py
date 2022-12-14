@@ -2,13 +2,12 @@
 import subprocess
 import os
 import logging
-from thon.scrape import fetch_data
-from thon.config import config_logger, config_rload
+from thon.hooks import collect_all
+from thon.config import config_logger, close_logger, config_rload
 from datetime import date, time, datetime
 
 #===============================================================================
-logfile = "./logs/my_log_" + str(date.today()) + ".log"
-log = config_logger(logfile)
+log = config_logger()
 
 os.chdir("C:\\Users\\keato\\Documents\\LocalRStudio\\LJ_Leading_Indicators\\")
 
@@ -82,7 +81,6 @@ fredpairs = {
 glist = ['new cars', 'used cars', 'cars for sale', 'car for sale near me', 'best new cars', 'how to buy a car', 'dealership near me', 'dealerships near me']
 #===============================================================================
 
-log.info("hello")
 # log_info("Preparing data for {param_list[monthfile]} to estimate {param_list[targetvar]} for the next {ahead} months")
 log.info("******************run params*****************")
 log.info(str(fetch_args))
@@ -94,13 +92,17 @@ log.info("******************run params*****************")
 
 # with subprocess.Popen(["Rscript", "--vanilla",  "Collage.R", "--args 12"], stdout=subprocess.PIPE) as proc:
 #     table = proc.stdout.read()
+collect_all(stocklist, fredpairs, glist)
 
 def digest_data(arglist):
   a = subprocess.run(config_rload("transform.R", arglist), check = True, text = True) # get stdout??!?!?!
   b = subprocess.run(config_rload("fishing.R", arglist), check = True, text = True) # get stdout??!?!?!
-  c = fetch_data(stocklist, fredpairs, glist)
+  c = collect_all(stocklist, fredpairs, glist)
   d = subprocess.run(config_rload("collage.R", arglist), check = True, text = True) # get stdout??!?!?!
 
+
+
+print(c)
 # def train_models():
 
 # def eval_models()

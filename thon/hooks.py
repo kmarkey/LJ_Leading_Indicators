@@ -4,7 +4,7 @@ import requests
 import json
 import pandas as pd
 import re
-from thon.config import config_logger
+from thon.config import config_logger, close_logger
 from datetime import date, datetime as dt
 import time
 from alpha_vantage.timeseries import TimeSeries # AV
@@ -19,7 +19,7 @@ class manager:
     
     def __init__(self, keyname, keypath = "./keys/keys.txt", boundpath = "./keys/bounds.csv", data_class = None):
         
-        self.log = config_logger("./logs/my_log_" + str(date.today()) + ".log")
+        self.log = config_logger()
         
         self.key = self.__get_key__(keyname = keyname, keypath = keypath)
         
@@ -51,6 +51,8 @@ class manager:
         except:
             self.log.exception("Bounds file formatted incorrectly")
             
+        close_logger(self.log)
+            
     def __get_key__(self, keyname, keypath):
       
         # not quite parsing correctly but still works with \n
@@ -79,6 +81,8 @@ class manager:
             self.log.error("Error getting keys")
             
             return None
+            
+        close_logger(self.log)
     
     @property
     def recyclable(self):
@@ -101,6 +105,8 @@ class manager:
         
         self.log.info("".join(["{}.csv size: ".format(self.data_class), out.shape, ", saved!"]))
         
+        close_logger(self.log)
+        
         return
         
     def save_info(self, info):
@@ -110,9 +116,11 @@ class manager:
             
         self.log.info("".join(["{}_info.json saved!".format(self.data_class)]))
         
+        close_logger(self.log)
+        
         return
 
-class stocks(manager):
+class stocks(manager):  
     
     def __init__(self, keyname = "alphavantage_key", data_class = "stocks"):
         
@@ -512,10 +520,12 @@ class trends(manager):
                 link = "https://trends.google.com/trends/explore?q={}&geo=US-WA-819".format(u)
                 
                 tdict[i] = {"name": name, "code": g, "updated": updated, "category": category, 
-                                "citation": citation, "link": url}
+                            "citation": citation, "link": link}
             except:
                 
-                self.log.info("No info found for {}".format(g))
+                self.log.exception("No info found for {}".format(g))
+                
+        self.info = tdict
                 
         if save == True:
           
@@ -531,69 +541,14 @@ class trends(manager):
         
         self.get_info(glist = glist, save = save)
 
-def collect_all(stocklist, fredpairs, glist):
+
+def collect_all(stocklist, fredpairs, glist, save = True):
     
-    s = stocks()
-    s.collect(stocklist, save = True)
+    s =  stocks()
+    s.collect(stocklist, save = save)
     
     f = fred()
-    f.collect(fredpairs, save = True)
+    f.collect(fredpairs, save = save)
     
     t = trends()
-    t.collect(glist, save = True)
-
-collect_all(stocklist = stocklist, fredpairs = fredpairs, glist = glist)
-
-# 
-# 
-# url = "https://fred.stlouisfed.org/series/T10YIEM"
-# 
-# response = requests.get(url, timeout = 5)
-# 
-# soup = BeautifulSoup(response.text, 'html.parser')
-# 
-# name = soup.find('span', {'id': 'series-title-text-container'}).text.strip()
-# name       
-# updated = soup.find('span', {'class': 'updated-text'})['title']
-# updated
-# 
-# category = soup.find('p', {'class': 'col-xs-12 col-md-6 pull-left'}).text.strip()#.replace("\n", "").replace(" +" , " ")
-# category = soup.find('p', {'class': 'col-xs-12 col-md-6 pull-left'}).text.strip().replace("  ", "").split("\n")[1]
-# soup.find('div', {"class": "clearfix"}).findPrevious()
-# category
-# soup.
-# 
-# citation = soup.find('p', {'class': 'citation'}).text.strip().replace("  ", "").replace("\n", " ")
-# citation
-# 
-# for a in citation:
-#     print(ord(a))
-# 
-# re.sub(" +", " ", citation)
-# 
-# citation.encode("unicode_escape")
-# tdict[k] = {"name": name, "code": v, "updated": updated, "category": category, 
-#             "citation": citation, "link": url}
-# url = "https://finance.yahoo.com/quote/LEA"
-# 
-# headers = {"User-Agent": "Chrome/71.0.3578.98"}
-# 
-# response = requests.get(url, timeout = 5)
-# response.status_code
-# 
-# soup = BeautifulSoup(response.text, 'html.parser')
-# 
-# name = soup.find('h1', {"class": "D(ib) Fz(18px)"}).text.strip()
-# 
-# name
-# updated = str(dt.now().strftime("%b %#d, %Y %#I:%M %p"))
-# 
-# category = "".join([soup.find(text = "Sector(s)").findNext('span').text,
-#                               ", ",
-#                               soup.find(text = "Industry").findNext('span').text])
-# 
-# citation = "".join([name, ", [", code, "], ", "retrieved from Alpha Vantage Inc.",
-#                     ", ", str(dt.now().strftime("%b %#d, %Y")), "."])
-# 
-#               
-
+    t.collect(glist, save = save)
