@@ -7,7 +7,7 @@ output:
   pdf_document:
     latex_engine: xelatex
     toc: true
-    number_sections: true
+    number_sections: false
     toc_depth: 6
     highlight: tango
   html_document:
@@ -33,35 +33,58 @@ library(readr)
 
 ### Project Aim:
 
-Find external indicators that provide reliable insight into the business
-performance of the Lee Johnson Auto Family's Kirkland location.
+Find external indicators that provide reliable insight into previous business
+performance of the Lee Johnson Auto Family's Kirkland location, and use those indicators to predict future business performance.
 
-### 1. Digest a Prepare Data
+# 1. Digest a Prepare Data
 
 Raw sales data provided by LJ Auto Family has been summarized by month.
 
-### 2. Find Indicators
+# 2. Find Indicators
 
-Potential candidates were chosen from a pool of stocks, economic
+Potential candidates were chosen from a pool of 68 stocks, economic
 measures, information available from Google Trends, and internal
 appointment information. The candidates came from suggestions by Tod,
-other similar projects, and current market research. Indicators were
-finally identified using a correlation coefficient cutoff and Lasso L1
-regularization. Indicators can be found for each lead time and target
-metric.
+other similar projects, and current market research.
 
-### 3. Create Predictions
+Candidate selection is not only one of the primary goals of this project, but it is an important step in preventing issues that may arise later. In general, one of the most chief concerns when training Machine Learning models is that the model performs well on the set of training data, but performs poorly when predicting new data. Among those in the field, this is known as _overfitting_. It is especially a concern in this project due to the small amount of available samples and small scope of data. Reducing the number of candidates used in each model through a (sometimes) model-specific process called _feature selection_ is a great way to avoid _overfitting_.
 
-Using the indicators, three modeling techniques are used to estimate
-business performance at a 3-month advance.
+Indicators and their associated models can be found in the [Data Sources](#Data%20Sources) section.
 
-a)  Linear Model
+Indicators were identified using a variety of _feature selection_ techniques:
+-   correlation coefficient
+-   Lasso L1 regularization
+-   Permutation Feature Importance
+
+After compiling a list of suggested candidates, I excluded those that were:
+-   Updated less frequently than every month
+-   Not released before the 5th of the month
+-   Not available for the duration of LJ data (2010-present)
+
+# 3. Create Predictions
+
+After vetting each candidate, they were assembled into a dataset and given to each of the following models:
+a)  Linear Model with L1 regularization
 b)  Decision Tree
-c)  
+c)  Random Forest
+d)  LSTM
+e)  Composite Model
 
-### 4. Figure Appendix
+Each model utilizes different algorithms to establish a relationship between the input and output. Thus, they must be interpreted differently. Below I describe some of the ways each model should generally be interpreted, and some additional considerations with respect to this project.
 
-### 5. Indicator Index
+### Linear Model with L1 regularization
+
+### Decision Tree
+
+### Random Forest
+
+### LSTM
+
+### Ensemble Model
+
+# 4. Figure Appendix
+
+# 5. Indicator Index
 
 ```{r, label="Set Bounds", include=FALSE, echo = FALSE}
 
@@ -74,21 +97,22 @@ today <- Sys.Date()
 # last month
 lmonth <- floor_date(floor_date(today, unit = "month") - 1, unit = "month")
 
-# bounds of last month on record
-pmonth <- floor_date(floor_date(max(KDAc$date), unit = "month") - 1, unit = "month")
-pomonth <- ceiling_date(pmonth, unit = "month") - 1
-
-nmonth <- pomonth + 1
+# bounds of 2nd to last month on record
+nmonth <- floor_date(floor_date(max(KDAc$date), unit = "month") - 1, unit = "month")
 nomonth <- ceiling_date(nmonth, unit = "month") - 1
 
+# bounds of last month on record
+pmonth <- nomonth + 1
+pqmonth <- ceiling_date(pmonth, unit = "month") - 1
+
 # days behind
-lmonth - pmonth
+lmonth - pqmonth
 
 # report would be made on the 1st of
-repon <- pomonth + 1
+repon <- pqmonth + 1
 
 # report is for the month of
-repfor <- paste0(month(pomonth, label = TRUE, abbr = FALSE), ", ", year(pmonth))
+repfor <- paste0(month(pqmonth, label = TRUE, abbr = FALSE), ", ", year(pqmonth))
 ```
 
 ```{r theme set, include = FALSE, echo = FALSE}
@@ -105,7 +129,7 @@ green <- "#588157"
 ljtheme <- function(){
     theme_minimal() %+replace%
     theme(
-      panel.grid.major = element_line(linetype = "solid", color = llightblue, size = 0.1),
+      panel.grid.major = element_line(linetype = "solid", color = llightblue, linewidth = 0.1),
       panel.grid.minor = element_blank(),
       panel.background = element_rect(fill = white), #light
       panel.border = element_rect(color = lightblue, fill = NA, linetype = "solid", size = 2),
@@ -121,7 +145,7 @@ ljtheme <- function(){
       text = element_text(color = white),
       axis.title = element_text(face = "italic", size = 11, color = white), 
       axis.text = element_text(color = white, size = 9), 
-      axis.ticks = element_line(color = white, size = .5, lineend = "butt"), 
+      axis.ticks = element_line(color = white, linewidth = .5, lineend = "butt"), 
       axis.ticks.length = unit(.1, "cm"),
       plot.title = element_text(face = "bold", # labels
                               color = white, size = 14, hjust = 0, vjust = 1.5),
@@ -129,7 +153,17 @@ ljtheme <- function(){
       plot.caption = element_text(color = white, face = "bold"),
       plot.background = element_rect(fill = blue)
     )
+}
+
+# A function factory for getting integer y-axis values.
+integer_breaks <- function(n = 5, ...) {
+  fxn <- function(x) {
+    breaks <- floor(pretty(x, n, ...))
+    names(breaks) <- attr(breaks, "labels")
+    breaks
   }
+  return(fxn)
+}
 
 theme_set(ljtheme())
 ```
@@ -161,102 +195,215 @@ Features are further selected for each model independently in the
 following ways:
 
 -   Linear Model
+
     -   Each remaining feature is passed through a Lasso regularization
         process, which selects features based on the efficacy of linear
         models that contain them using 5-fold cross-validation.
+
 -   Decision Tree
+
     -   Regularization is applied after training when the tree is pruned
         at a depth optimized by 5-fold cross-validation.
--   Random Forest
-    -   
+
+-   
+
+    ## Random Forest
 
 A simple correlation is calculated for each source with respect to the
 target metric. Based on
 
-```{r New/Used Movers}
+```{r}
+
+new_used <- "NEW"
+purchase_lease <- "L"
+metric <- "n"
+group <- "weekly" # day, quarter and year?
+
+group_unit <- function(group) {
+  if (group == "daily") {
+    return("day")
+  } else return(substr(group, 1, nchar(group) - 2))
+}
+
+data <- KDAc %>%
+
+    {if (new_used != "BOTH")
+        
+        dplyr::filter(., nu == new_used) # this and last month
+      else .
+        } %>%
+    
+    {if (purchase_lease != "BOTH")
+        
+        dplyr::filter(., pl == purchase_lease)
+      else .
+      } %>%
+  
+  group_by(!!group := floor_date(date, group_unit(!!group))) %>%
+        
+  {if (metric == "n")
+    dplyr::summarise(., n = n(), date)
+    else
+      dplyr::summarise(., !!metric := mean(get(metric), na.rm = TRUE), date)}
+  
+data %>%
+  ggplot() +
+      geom_line(aes(x = get(group), y = get(metric)), color = blue, linewidth = 2) +
+      geom_point(aes(x = get(group), y = get(metric)), color = blue, size = 1.5) +
+      geom_line(aes(x = get(group), y = get(metric)), color = lightblue, linewidth = .5) +
+
+
+
+  
+  labs(x = "",
+       y = paste0(metric))
+
+```
+
+```{r new.used movers}
 #### rolling average
 #https://stackoverflow.com/questions/33769770/use-rollapply-and-zoo-to-calculate-rolling-average-of-a-column-of-variables
 
 # Change in sales for the 5 most common vehicles new/used
 
+# don't really care about latency, we can dynamically create plots based on parameters
+
+new_used <- "BOTH"
+movers_n <- 10
+
 # biggest movers from last month ??
-newmonth <- KDAc %>%
-  dplyr::filter(nu == "NEW", date >= pmonth - months(1), date <= pomonth) %>% # this and last month
-  dplyr::mutate(carname = str_c(make, " ", model, " ", caryear), .keep = 'unused') %>%
-  dplyr::group_by(carname, month = ifelse(month(date) == month(pmonth), "current", "last")) %>% # change month names
+
+movers <- KDAc %>%
+  
+  {if (new_used != "BOTH")
+    dplyr::filter(., nu == new_used, date >= nmonth, date <= pqmonth) # this and last month
+    else 
+      dplyr::filter(., date >= nmonth, date <= pqmonth)
+  } %>%
+  
+  {if (new_used == "USED") 
+    dplyr::mutate(., carname = str_c(make, " ", model), .keep = 'unused')
+    else # Only by model, not by year
+      dplyr::mutate(., carname = str_c(make, " ", model, " ", caryear), .keep = 'unused')} %>%
+  
+  dplyr::group_by(carname, month = ifelse(month(date) == month(pqmonth), "current", "last")) %>% # change month names
+  
   dplyr::summarise(n = n()) %>%
+  
   pivot_wider(id_cols = "carname", names_from = "month", values_from = "n", values_fill = 0) %>%
   
   dplyr::mutate(change = current - last) %>%
   ungroup() %>%
-  slice_max(n = 10, order_by = abs(change), with_ties = FALSE)
+  slice_max(n = movers_n, order_by = abs(change), with_ties = FALSE)
 
-
-newmonth %>%
-  ggplot() + geom_segment(aes(x = reorder(carname, last), y = last, xend = carname, yend = current, color = change < 0),
-                          size = 3, lineend = "round", linejoin = "bevel",
-                          arrow = arrow(length = unit(0.2, "inches"), ends = "first")) +
-  theme(axis.text.x = element_text(angle = -25),
-        legend.position = "none") +
-  scale_color_manual(values = c(red, green)) +
-  labs(title = "Biggest Movers This Month for New Cars",
-       subtitle = repfor, 
-       x = "",
-       y = "Change In Sales This Month")
-
-# not grouped by year!???
-usedmonth <- KDAc %>%
-  dplyr::filter(nu == "USED", date >= pmonth - months(1), date <= pomonth) %>% # this and last month
-  dplyr::mutate(carname = str_c(make, " ", model), .keep = 'unused') %>%
-  dplyr::group_by(carname, month = ifelse(month(date) == month(pmonth), "current", "last")) %>% # change month names
-  dplyr::summarise(n = n()) %>%
-  pivot_wider(id_cols = "carname", names_from = "month", values_from = "n", values_fill = 0) %>%
+movers %>%
   
-  dplyr::mutate(change = current - last) %>%
-  ungroup() %>%
-  slice_max(n = 10, order_by = abs(change), with_ties = FALSE)
+  ggplot() + 
+  
+  geom_segment(aes(x = reorder(carname, change), y = last, xend = carname, yend = current, color = change > 0),
+               size = 10, lineend = "round") +
+  
+  geom_point(aes(x = carname, y = current), color = "black", alpha = 0.2, size  = 10) +
 
-usedmonth %>%
-  ggplot() + geom_segment(aes(x = reorder(carname, last), y = last, xend = carname, yend = current, color = change < 0),
-                          size = 3, lineend = "round", linejoin = "bevel",
-                          arrow = arrow(length = unit(0.2, "inches"), ends = "first")) +
+  
+  geom_segment(aes(x = reorder(carname, change), y = current, xend = carname, yend = last),
+               color = "white",
+               size = 1.1, lineend = "round", linejoin = "bevel",
+               arrow = arrow(length = unit(0.15, "in"), ends = "first")) +
+  
   theme(axis.text.x = element_text(angle = 10),
         legend.position = "none") +
+  
   scale_color_manual(values = c(red, green)) +
-  labs(title = "Biggest Movers This Month for Used Cars",
+  
+  labs(title = paste0("Biggest Movers This Month (", new_used, ")"),
        subtitle = repfor,
        x = "",
-       y = "Change In Sales This Month")
+       y = "Change In Sales")
+
 ```
 
 ```{r Last 6 Months Sales}
+
+# n.months must be less than as.numeric(month(pmonth, abbr = FALSE, label = FALSE))
+n.months <- 6
+
+metric <- "n"
+
+metric_dict <- c(n = "Total Sales", 
+                 front_gross_profit = "Avg. Front Gross Profit", 
+                 back_gross_profit = "Avg. Back Gross Profit",
+                 total_gross_profit = "Avg. Total Gross Profit",
+                 cash_price = "Avg. Cash Price")
+
 mlabs <- function(x) {
-  paste0(month(pmonth - months(as.numeric(x)), label = TRUE, abbr = FALSE))
+  paste0(month(
+    pmonth - months(as.numeric(x)),
+    label = TRUE,
+    abbr = FALSE
+  ))
 }
 
 mgroups <- KDAc %>%
-  dplyr::mutate(mgroup = factor(month(pmonth) - month(date), ordered = TRUE), theyear = year(date)) %>%
-  group_by(mgroup, theyear) %>%
-  summarise(ycount = n(), mgroup, theyear) %>%
-  distinct() %>%
-  dplyr::filter(theyear >= year(pmonth) - 1, mgroup <= 5 && mgroup >= 0)
-
-ggplot() + geom_bar(data = mgroups %>% dplyr::filter(theyear == year(pmonth)), 
-                    aes(x = mgroup, y = ycount), width = 0.7,
-                    stat = "identity", fill = lightblue, alpha = 0.8) +
-  geom_line(data = mgroups %>% dplyr::filter(theyear == year(pmonth) - 1),
-            aes(x = mgroup, y = ycount, group = theyear), lwd = 1.5, lty = 8, alpha = 0.6) +
-  geom_label(data = mgroups %>% dplyr::filter(theyear == year(pmonth)),
-             aes(x = mgroup, y = ycount, label = ycount)) +
-  geom_label(data = mgroups %>% dplyr::filter(theyear == year(pmonth) - 1, mgroup == 5),
-             aes(x = mgroup, y = ycount - 10, label = "Last Year"), fill = "black", color = "white") +
-    
-    scale_x_discrete(labels = mlabs, limits = rev) +
   
-    labs(title = "Number of Sales in the Last 6 Months",
-         subtitle = paste0("For ", repfor),
-         y = '',
-         x = '')
+  dplyr::mutate(mgroup = factor(month(pmonth) - month(date), ordered = TRUE),
+                theyear = year(date)) %>%
+  
+  group_by(mgroup, theyear) %>%
+  
+  {if (metric == "n")
+    summarise(., y = n(), mgroup, theyear)
+    else
+      summarise(., y = mean(get(metric), na.rm = TRUE), mgroup, theyear)} %>%
+
+  distinct() %>%
+  
+  dplyr::filter(theyear >= year(pmonth) - 1, mgroup <= n.months - 1 &&
+                mgroup >= 0)
+
+ggplot() +
+  geom_bar(
+    data = mgroups %>% dplyr::filter(theyear == year(pmonth)),
+    aes(x = mgroup, y = y),
+    width = 0.7,
+    stat = "identity",
+    fill = lightblue,
+    alpha = 0.8
+  ) +
+  
+  geom_line(
+    data = mgroups %>% dplyr::filter(theyear == year(pmonth) - 1),
+    aes(x = mgroup, y = y, group = theyear),
+    lwd = 1.5,
+    lty = 9,
+    alpha = 0.6
+  ) +
+  
+  geom_label(
+    data = mgroups %>% dplyr::filter(theyear == year(pmonth) - 1, mgroup == n.months - 1),
+    aes(x = mgroup, y = y - 10, label = "Last Year"),
+    fill = "black",
+    color = "white"
+  ) +
+  
+  {if (metric == "n") 
+      geom_label(data = mgroups %>% dplyr::filter(theyear == year(pmonth)),
+             aes(x = mgroup, y = y, label = comma(round(y))))
+    else
+      geom_label(data = mgroups %>% dplyr::filter(theyear == year(pmonth)),
+                 aes(x = mgroup, y = y, label = paste0("$", comma(round(y)))))
+    } +
+  
+  scale_x_discrete(labels = mlabs, limits = rev) +
+  
+  scale_y_continuous(labels = comma) +
+  
+  labs(
+    title = paste0(metric_dict[metric], " in the Last ", n.months, " Months"),
+    subtitle = paste0("From ", repfor),
+    y = '',
+    x = ''
+  )
 ```
 
 Compare this month to other years
@@ -283,97 +430,126 @@ calmonth <- KDAc %>%
                                           "Used Sales"), ordered = TRUE)) %>%
   
   mutate(ranks = order(order(value, decreasing = TRUE)), # actual ranks
-         rankval = order(order(value))) # numeric bar chart value
+         rankval = rank(value)) # numeric bar chart value
 
 ggplot(calmonth) +
   geom_bar(aes(x = theyear, y = rankval, fill = rankval),  stat = "identity") + 
-  facet_wrap(~name) + 
+  facet_wrap(~name) +
   geom_text(aes(x = theyear, y = rankval/2, label = ranks), color = white) +
   scale_fill_gradient2(midpoint = 3, low = red, mid = llightblue,
                      high = blue) +
-  labs(title = paste0("Ranking the ", month(pmonth, label = TRUE, abbr = FALSE), " Months"),
-       subtitle = paste0("For ", repfor),
+  labs(title = paste0("Ranking ", repfor),
+       subtitle = paste0("Compared to other '", month(pmonth, label = TRUE, abbr = FALSE), "'s"),
        x = '',
        y = '') +
   theme(legend.position = "none",
         axis.text.y = element_blank(),
         axis.ticks.y = element_blank())
 ```
+
 ```{r, label="People"}
 # best salesman by avg cash price? avg fgp? n sales? for this month
 
-salesman_metric <- "cp_a" # button?
+salesman_metric <- "n" # button!
 
-salesman_metric_dict <- c(n = "Total Sales", fgp_a = "Avg. Front Gross Profit", cp_a = "Avg. Cash Price")
+salesman.n <- 5
+
+salesman_metric_dict <-
+  c(n = "Total Sales", fgp_a = "Avg. Front Gross Profit", cp_a = "Avg. Cash Price")
 
 salespeople <- KDAc %>%
-  dplyr::filter(date >= pmonth, date <= pomonth) %>%
+  dplyr::filter(date >= pmonth, date <= pqmonth) %>%
   group_by(salesman) %>%
-  dplyr::transmute(cp_a = mean(cash_price, na.rm = TRUE), 
-                fgp_a = mean(front_gross_profit, na.rm = TRUE),
-                n = n(),
-                salesman) %>%
+  dplyr::transmute(
+    cp_a = mean(cash_price, na.rm = TRUE),
+    fgp_a = mean(front_gross_profit, na.rm = TRUE),
+    n = n(),
+    salesman
+  ) %>%
   distinct() %>%
   ungroup() %>%
-  slice_max(n = 5, order_by = get(salesman_metric))
+  slice_max(n = salesman.n, order_by = get(salesman_metric))
 
 salespeople %>%
-  ggplot() + geom_bar(aes(x = reorder(salesman, get(salesman_metric)), 
-                                      y = get(salesman_metric)), 
-                          stat = "identity", fill = lightblue) + 
-  {if(salesman_metric == "n")geom_label(aes(x = salesman,
-                 y = get(salesman_metric),
-                 label = paste0(salesman, "\n", round(get(salesman_metric), digits = 0))),
-             size = 3)} +
-  {if(salesman_metric != "n")geom_label(aes(x = salesman,
-                 y = get(salesman_metric),
-                 label = paste0(salesman, "\n$", scales::comma(round(get(salesman_metric), digits = 0)))),
-             size = 3)} +
+  ggplot() + geom_bar(aes(x = reorder(salesman, get(salesman_metric)),
+                          y = get(salesman_metric)),
+                      stat = "identity", fill = lightblue) +
+  {
+    if (salesman_metric == "n")
+      geom_label(aes(
+        x = salesman,
+        y = get(salesman_metric),
+        label = paste0(salesman, "\n", round(get(salesman_metric), digits = 0))
+      ),
+      size = 3)
+  } +
+  {
+    if (salesman_metric != "n")
+      geom_label(aes(
+        x = salesman,
+        y = get(salesman_metric),
+        label = paste0(salesman, "\n$", scales::comma(round(
+          get(salesman_metric), digits = 0
+        )))
+      ),
+      size = 3)
+  } +
   # geom_label(aes(x = salesman,
   #                y = get(salesman_metric),
   #                label = paste0(salesman, "\n", scales::comma(round(get(salesman_metric), digits = 0)))),
   #            size = 3) +
-
-  labs(title = paste("Top Salesman By", salesman_metric_dict[salesman_metric]),
-       subtitle = repfor,
-       y = salesman_metric_dict[salesman_metric],
-       x = "") +
+  
+  labs(
+    title = paste("Top Salesman By", salesman_metric_dict[salesman_metric]),
+    subtitle = repfor,
+    y = salesman_metric_dict[salesman_metric],
+    x = ""
+  ) +
   scale_y_continuous(expand = expansion(mult = c(-0.5, 0.05)),
                      breaks = integer_breaks()) +
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank())
   
-# best fi manager by back gross
+# best fi manager by back gross?
+
+fi.n <- 5
+
 fipeople <- KDAc %>%
-  dplyr::filter(date >= pmonth, date <= pomonth) %>%
+  dplyr::filter(date >= pmonth, date <= pqmonth) %>%
   group_by(fimanager) %>%
   dplyr::transmute(bgp_a = mean(back_gross_profit, na.rm = TRUE), fimanager) %>%
   distinct() %>%
   ungroup() %>%
-  slice_max(n = 5, order_by = bgp_a)
-  
-fipeople %>%
-  ggplot() + geom_bar(aes(x = reorder(fimanager, bgp_a), 
-                                      y = bgp_a), 
-                          stat = "identity", fill = lightblue) + 
-  geom_label(aes(x = fimanager,
-                 y = bgp_a,
-                 label = paste0(fimanager, "\n $", scales::comma(round(bgp_a, digits = 0)))),
-             size = 3) +
+  slice_max(n = fi.n, order_by = bgp_a)
 
-  labs(title = paste("Top Finance Manager By Avg. Back Gross Profit"),
-       subtitle = repfor,
-       y = "Back Gross Profit",
-       x = "") +
+fipeople %>%
+  ggplot() + geom_bar(aes(x = reorder(fimanager, bgp_a),
+                          y = bgp_a),
+                      stat = "identity", fill = lightblue) +
+  geom_label(aes(
+    x = fimanager,
+    y = bgp_a,
+    label = paste0(fimanager, "\n $", scales::comma(round(bgp_a, digits = 0)))
+  ),
+  size = 3) +
+  
+  labs(
+    title = paste("Top Finance Manager By Avg. Back Gross Profit"),
+    subtitle = repfor,
+    y = "Back Gross Profit",
+    x = ""
+  ) +
   scale_y_continuous(expand = expansion(mult = c(-0.5, 0.05)),
-                     breaks = integer_breaks()) +
+                     labels = comma) +
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank())
 ```
+
 # Next Month?
+
 Based on past business performance cycles, months + years
 
-```{r, label="Next Month"}
+```{r, label="Next Month", eval = FALSE}
 # years on right, months on left?
 #
 nmonth_metric <- "Back Gross"
@@ -398,10 +574,10 @@ thismonthinsert <- list(group = 2,
 # previous months + years for next month
 
 nmonth_df <- bind_rows(KDAc %>% # last 2 months
-                   dplyr::filter(date >= pmonth - months(1), date < pomonth) %>%
+                   dplyr::filter(date >= pmonth - months(1), date < pqmonth) %>%
                    dplyr::mutate(group = 1, tframe = as.character(month(date, label = TRUE, abbr = FALSE))),
                  KDAc %>% # last 2 years
-                   dplyr::filter(month(date) == month(pmonth) + 1, year(date) >= year(pmonth) - 2, date < pomonth) %>%
+                   dplyr::filter(month(date) == month(pmonth) + 1, year(date) >= year(pmonth) - 2, date < pqmonth) %>%
                    dplyr::mutate(group = 3, tframe = as.character(year(date)))) %>%
   group_by(group, tframe) %>%
   summarise(`Avg. Cash Price` = mean(cash_price, na.rm = TRUE),
@@ -457,7 +633,9 @@ nmonth_df %>%
        x = "",
        y = "Value")
 ```
+
 # Predictions
+
 ```{r}
 # read in imaginary df(s)
 
@@ -465,16 +643,13 @@ nmonth_df %>%
 ```
 
 
-
-# Cumulative
 ```{r, label="Cumulative Tracker"}
 
 ```
+
 ### 2. Summary statistics
 
 ```{r Summary}
-summary(KDAc)
-glimpse(KDAc)
 ```
 
 #### We have some NA's, or empty spaces, in the data. This could be for a
@@ -484,13 +659,7 @@ glimpse(KDAc)
 the data longitudinally. This is probably unnecessary but I'm going to
 do it anyway.
 
-```{r}
-summary(glm(is.na(Back_Gross_Profit) ~ Date, KDA1, family = 'binomial'))
-summary(glm(is.na(Front_Gross_Profit) ~ Date, KDA1, family = 'binomial'))
-summary(glm(is.na(Total_Gross_Profit) ~ Date, KDA1, family = 'binomial'))
-summary(glm(is.na(Cash_Price) ~ Date, KDA1, family = 'binomial'))
 
-```
 
 #### Based on the models, we noticed a significant trend for all the metrics.
 
@@ -507,19 +676,19 @@ set.
 #### Now, lets look at some quick plots of the data.
 
 ```{r}
-ggplot(KDA1, aes(Date, Front_Gross_Profit)) + geom_point() + geom_smooth()
-ggplot(KDA1, aes(Date, Back_Gross_Profit)) + geom_point() + geom_smooth()
-ggplot(KDA1, aes(Date, Total_Gross_Profit)) + geom_point() + geom_smooth()
-ggplot(KDA1, aes(Date, Cash_Price)) + geom_point() + geom_smooth()
+# ggplot(KDA1, aes(Date, Front_Gross_Profit)) + geom_point() + geom_smooth()
+# ggplot(KDA1, aes(Date, Back_Gross_Profit)) + geom_point() + geom_smooth()
+# ggplot(KDA1, aes(Date, Total_Gross_Profit)) + geom_point() + geom_smooth()
+# ggplot(KDA1, aes(Date, Cash_Price)) + geom_point() + geom_smooth()
 ```
 
 #### 
 
 ```{r}
-ggplot(KDA1, aes(x = Date)) + geom_smooth(aes(y = Front_Gross_Profit, col = "front"), se = F) +
-  geom_smooth(aes(y = Back_Gross_Profit, col = "back"), se = F) + ylab("") +
-  geom_smooth(aes(y = Total_Gross_Profit, col = "total"), se = F) +
-  geom_smooth(aes(y = .04*Cash_Price, col = "cash"), se = F) 
+# ggplot(KDA1, aes(x = Date)) + geom_smooth(aes(y = Front_Gross_Profit, col = "front"), se = F) +
+#   geom_smooth(aes(y = Back_Gross_Profit, col = "back"), se = F) + ylab("") +
+#   geom_smooth(aes(y = Total_Gross_Profit, col = "total"), se = F) +
+#   geom_smooth(aes(y = .04*Cash_Price, col = "cash"), se = F) 
 ```
 
 #### If we hope to do anything with this, we will have to extract these trends.
@@ -562,19 +731,19 @@ lets take a look at this new df, now with the number of sales per day
 linear model (loess).
 
 ```{r}
-summary(Day)
-Day %>%
-ggplot(aes(x = Date)) + 
-  geom_smooth(aes(y =.6*sum.tgp-600, color = "total gross"), 
-              se = F, method = 'loess') +
-  geom_smooth(aes(y = sum.bgp, color = "back gross"), 
-              se = F, method = 'loess') + 
-  geom_smooth(aes(y = .6*sum.fgp + 8700, color = "front gross"), 
-              se = F, method = 'loess') +
-  geom_smooth(aes(y = .15*(sum.cp-183000), color = "cash price"), 
-              se = F, method = 'loess') +
-  geom_smooth(aes(y = 1000*n+5000, color = "n sales"), 
-              se = F, method = 'loess') + ylab("")
+# summary(Day)
+# Day %>%
+# ggplot(aes(x = Date)) + 
+#   geom_smooth(aes(y =.6*sum.tgp-600, color = "total gross"), 
+#               se = F, method = 'loess') +
+#   geom_smooth(aes(y = sum.bgp, color = "back gross"), 
+#               se = F, method = 'loess') + 
+#   geom_smooth(aes(y = .6*sum.fgp + 8700, color = "front gross"), 
+#               se = F, method = 'loess') +
+#   geom_smooth(aes(y = .15*(sum.cp-183000), color = "cash price"), 
+#               se = F, method = 'loess') +
+#   geom_smooth(aes(y = 1000*n+5000, color = "n sales"), 
+#               se = F, method = 'loess') + ylab("")
 ```
 
 ### 5. Imputation
@@ -590,22 +759,22 @@ times [m = 20], and we get its best guess at what the missing values
 would be according to pmm. We can easily change the method later too.
 
 ```{r, include=FALSE}
-m<-'pmm'
-junk<-capture.output(imp <- mice(data = Day, m = 20, method = c("",m,m,m,m,m)))
-Day.full<-complete(imp, 20)
-#The completed df
-Day.full %>%
-ggplot(aes(x = Date)) + 
-  geom_smooth(aes(y =.6*sum.tgp-600, color = "total gross"), 
-              se = F, method = 'loess') +
-  geom_smooth(aes(y = sum.bgp, color = "back gross"), 
-              se = F, method = 'loess') + 
-  geom_smooth(aes(y = .6*sum.fgp + 8700, color = "front gross"), 
-              se = F, method = 'loess') +
-  geom_smooth(aes(y = .15*(sum.cp-183000), color = "cash price"), 
-              se = F, method = 'loess') +
-  geom_smooth(aes(y = 1000*n+5000, color = "n sales"), 
-              se = F, method = 'loess') + ylab("")
+# m<-'pmm'
+# junk<-capture.output(imp <- mice(data = Day, m = 20, method = c("",m,m,m,m,m)))
+# Day.full<-complete(imp, 20)
+# #The completed df
+# Day.full %>%
+# ggplot(aes(x = Date)) + 
+#   geom_smooth(aes(y =.6*sum.tgp-600, color = "total gross"), 
+#               se = F, method = 'loess') +
+#   geom_smooth(aes(y = sum.bgp, color = "back gross"), 
+#               se = F, method = 'loess') + 
+#   geom_smooth(aes(y = .6*sum.fgp + 8700, color = "front gross"), 
+#               se = F, method = 'loess') +
+#   geom_smooth(aes(y = .15*(sum.cp-183000), color = "cash price"), 
+#               se = F, method = 'loess') +
+#   geom_smooth(aes(y = 1000*n+5000, color = "n sales"), 
+#               se = F, method = 'loess') + ylab("")
 ```
 
 #### Now, since we have data for each day, we can do some timeries analysis for
@@ -616,16 +785,16 @@ every day. From, these plots, we really just need to pay attention to
 the trend.
 
 ```{r}
-b<-decompose(ts(Day.full$sum.bgp, frequency =365))
-plot(b) + title("Back Gross", line = -.5)
-f<-decompose(ts(Day.full$sum.fgp, frequency =365))
-plot(f)+ title("Front Gross", line = -.5)
-t<-decompose(ts(Day.full$sum.tgp, frequency =365))
-plot(t) + title("Total Gross", line = -.5)
-c<-decompose(ts(Day.full$sum.cp, frequency =365))
-plot(c) + title("Cash Price", line = -.5)
-n<-decompose(ts(Day.full$n, frequency =365))
-plot(n) + title("N Sold", line =  -.5)
+# b<-decompose(ts(Day.full$sum.bgp, frequency =365))
+# plot(b) + title("Back Gross", line = -.5)
+# f<-decompose(ts(Day.full$sum.fgp, frequency =365))
+# plot(f)+ title("Front Gross", line = -.5)
+# t<-decompose(ts(Day.full$sum.tgp, frequency =365))
+# plot(t) + title("Total Gross", line = -.5)
+# c<-decompose(ts(Day.full$sum.cp, frequency =365))
+# plot(c) + title("Cash Price", line = -.5)
+# n<-decompose(ts(Day.full$n, frequency =365))
+# plot(n) + title("N Sold", line =  -.5)
 ```
 
 #### Looks nice and informative. Now, lets make sure all our data is in the standard
@@ -634,30 +803,71 @@ style so we can easily compare it to other economic trends.
 
 ```{r}
 #dummy for joining
-time.seq<-seq.Date(from = as.Date("2016-01-01"), to = as.Date("2020-11-16"), by = 'day')
-blank<-as.data.frame(time.seq)
-colnames(blank)<-c("date")
-## Then the final df
-rogue<- cbind(as.data.frame(Day.full$Date), as.data.frame(b$trend),
-              as.data.frame(f$trend),
-              as.data.frame(t$trend), as.data.frame(c$trend), 
-              as.data.frame(n$trend))
-colnames(rogue)<-c("date", "backg", "frontg", "totalg", "cp", "n")
-rogue<-left_join(blank, rogue)
-#Finally, a very informative plot of our trends so far
-plot(rogue)
+# time.seq<-seq.Date(from = as.Date("2016-01-01"), to = as.Date("2020-11-16"), by = 'day')
+# blank<-as.data.frame(time.seq)
+# colnames(blank)<-c("date")
+# ## Then the final df
+# rogue<- cbind(as.data.frame(Day.full$Date), as.data.frame(b$trend),
+#               as.data.frame(f$trend),
+#               as.data.frame(t$trend), as.data.frame(c$trend), 
+#               as.data.frame(n$trend))
+# colnames(rogue)<-c("date", "backg", "frontg", "totalg", "cp", "n")
+# rogue<-left_join(blank, rogue)
+# #Finally, a very informative plot of our trends so far
+# plot(rogue)
 ```
 
-#### Now, we are ready to test this df against some possible leading indicators.
+# Data Sources
 
-## Part 2.
+```{r, include=FALSE}
+# read in json  files
+library(rjson)
 
-```{r}
+stock_info <- fromJSON(file = "data/out/stocks_info.json")
 
+fred_info <- fromJSON(file = "data/out/fred_info.json")
 
+trend_info <- fromJSON(file = "data/out/trends_info.json")
 
+get_info <- function(data) {
 
+df <- data.frame()
 
+    for (i in names(data)){
+    
+        for (j in data[i]) {
+            r <- c(key = i, unlist(j))
+            }
+        df <- rbind(df, r)
+    }
+    
+    names(df) <- c("key", names(data[[1]]))
+    
+    return(df)
+}
 
+info_df <- rbind(get_info(stock_info),
+                 get_info(fred_info),
+                 get_info(trend_info)) %>%
+    dplyr::summarise(name, key, category, updated, `citation`, link)
+
+ # add in best lag and usage per model here
 
 ```
+
+```{r display-info, results='asis'}
+for (i in 1:nrow(info_df)) {
+  cat("\n\n##[", info_df$name[i], "](", info_df$link[i], ")", sep = "")
+  cat("\n_", info_df$key[i], "_", sep = "")
+  cat("\n__", info_df$category[i], "_", sep = "")
+  cat("\n", info_df$updated[i], sep = "")
+  cat("\n", info_df$citation[i], sep = "")
+}
+```
+
+# References
+
+# Credit
+
+Author: Keaton Markey Version: 0.11 Date Revised: 1/11/2023 Property of:
+Lee Johnson Auto Family, Kirkland WA

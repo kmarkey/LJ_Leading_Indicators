@@ -9,7 +9,7 @@ from datetime import date, time, datetime
 #===============================================================================
 log = config_logger()
 
-os.chdir("C:\\Users\\keato\\Documents\\LocalRStudio\\LJ_Leading_Indicators\\")
+os.chdir("C:/Users/keato/Documents/LocalRStudio/LJ_Leading_Indicators/")
 
 fetch_args = {"cor_max": 0.20, # set feature correlation cutoff
               "ahead": 3, # set lead time in months (3)
@@ -92,7 +92,6 @@ log.info("******************run params*****************")
 
 # with subprocess.Popen(["Rscript", "--vanilla",  "Collage.R", "--args 12"], stdout=subprocess.PIPE) as proc:
 #     table = proc.stdout.read()
-collect_all(stocklist, fredpairs, glist)
 
 def digest_data(arglist):
   a = subprocess.run(config_rload("transform.R", arglist), check = True, text = True) # get stdout??!?!?!
@@ -100,9 +99,6 @@ def digest_data(arglist):
   c = collect_all(stocklist, fredpairs, glist)
   d = subprocess.run(config_rload("collage.R", arglist), check = True, text = True) # get stdout??!?!?!
 
-
-
-print(c)
 # def train_models():
 
 # def eval_models()

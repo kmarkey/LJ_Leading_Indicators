@@ -19,6 +19,12 @@ cargs <- commandArgs(trailingOnly = TRUE)
 # cargs to env
 parmesean(cargs)
 
+cor_max <- 0.20 # set feature correlation cutoff
+ahead <- 3 # set lead time in months (3)
+train_set <- "all" # data subset being used
+targetvar <- "n" # variable of interest
+bloat <- FALSE # favor wide over long feature data
+
 # ============================ make logfile ====================================
 
 log_setup()
@@ -64,7 +70,6 @@ if (!exists("stocks")) {
 }
 
 exam(stocks)
-
 #=================================== fred ======================================
 
 if (!exists("fred")) {
@@ -85,7 +90,6 @@ if (!exists("fred")) {
     }
 
 exam(fred)
-
 #=============================== google trends =================================
 
 if (!exists("trends")) {
@@ -105,8 +109,6 @@ if (!exists("trends")) {
   
 }
 
-exam(trends)
-
 #=============================== supplemental data =============================
 
 supp <- blank_m %>%
@@ -117,6 +119,7 @@ supp <- blank_m %>%
               year = year(date))
 
 # no support for ahead != 3
+
 supp_ext <- tibble(date = c(max(blank_m$date) + months(1),
                             max(blank_m$date) + months(2),
                             max(blank_m$date) + months(3)),
@@ -150,6 +153,7 @@ if (!exists("website")) {
     }
 
 exam(website)
+
 # finished with web
 #================================= appointments? ===============================
 
@@ -198,9 +202,6 @@ if(sum(is.na(complete_dirty)) != 0) {
   
   }
 
-#write
-write_csv(complete_dirty, "./data/out/complete.csv")
-
 #============================ wide cor filter ==================================
 
 log_trace("Doing correlations")
@@ -209,40 +210,32 @@ complete_cor <- complete_dirty %>%
     
     cor(use = "pairwise.complete.obs")
 
-# select features in features dict by month lagged
-enumerate <- function(x, threshold) {
-    
-    under <- 0:threshold
-    
-    out <- str_c(x, under)
-    
-    return(out)
-}
-
 # select one lag per source that is above ahead and cor cutoff
+
 feature_dict <- as.data.frame(complete_cor) %>%
   
-  dplyr::filter(!!targetvar >= cor_max | !!targetvar <= -cor_max, !!targetvar != 1) %>% # correlation cutoff
+  dplyr::select(!!targetvar) %>%# get correlation of all cols to n
   
-  dplyr::select(!!targetvar) %>% # get correlation of all cols to n
+  dplyr::filter(!!targetvar >= cor_max | !!targetvar <= -cor_max, !!targetvar  != 1) %>%# correlation cutoff
   
   rownames_to_column("name") %>%
   
   dplyr::filter(
-    as.numeric(str_remove(name, ".*_lag")) >= ahead | is.na(as.numeric(str_remove(name, ".*_lag")))) %>%
+    as.numeric(str_remove(name, ".*_lag")) >= ahead | !grepl(".*_lag", name)) %>%
   
-  group_by(str_replace(name, "_lag.*", "")) %>% # group bysource
+  group_by(str_replace(name, "_lag.*", "")) %>% # group by source
   
-  slice_max(get(targetvar)) %>% # find features with highest cor to n
+  slice_max(get(targetvar)) %>%# find features with highest cor to n
   
   ungroup() %>%
   
   dplyr::pull(name) # name to vector
 
-log_info("Cooking down: Slicing at cor = {cor_max} and picking {length(feature_dict)} best feature names, ahead {ahead} months")
+log_info("Cooking down: Slicing at cor = {cor_max} and picking {length(feature_dict) - 4} best feature names, ahead {ahead} months")
 
 #============================== prevent flow backup ============================
-# cutting horizontally
+
+# any NA's at the end of the df?
 dam <- names(complete_dirty)[which(is.na(complete_dirty[nrow(complete_dirty),]))]
 
 if (length(dam) > 0) {
@@ -252,25 +245,24 @@ if (length(dam) > 0) {
     }
 
 #================================ set bloating =================================
+
+# Prefer wide df to long?
+
 if (bloat == FALSE) {
   
+    # get total nas in each col
     blort <- colSums(sapply(complete_dirty, is.na))
     
+    # keep bottom 50% with least nas
     blort_names <- names(blort[blort <= round(mean(blort))])
     
-    features <- dplyr::select(complete_dirty, !!targetvar, all_of(feature_dict), -all_of(dam)) %>%
-        
-        dplyr::select(all_of(any_of(blort_names))) %>%
-        
-        tibble::rowid_to_column("month") %>%
-        
-        na.omit()
+    features <- dplyr::select(complete_dirty, all_of(blort_names)) %>%
+      
+        dplyr::select(!!targetvar, any_of(feature_dict), -any_of(dam))
     
 } else {
         
     features <- dplyr::select(complete_dirty, !!targetvar, all_of(feature_dict), -all_of(dam)) %>% # correlation
-        
-        tibble::rowid_to_column("month") %>%
         
         na.omit()
 }
@@ -281,6 +273,9 @@ log_info("Boiled off {ncol(complete_dirty) - ncol(features)} columns and {nrow(c
 
 write_csv(supp_ext, "./data/out/supp_ext.csv")
 #==================================== write out ================================
+
+write_csv(complete_dirty, "./data/out/complete.csv")
+
 log_info("{ncol(features) - 1} features saved to features.csv, length {nrow(features)}") # -n and month
 
 write_csv(features, "./data/out/features.csv")
