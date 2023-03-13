@@ -30,49 +30,58 @@ library(scales)
 library(tidyr)
 library(readr)
 ```
+# Introduction:
 
 ### Project Aim:
 
 Find external indicators that provide reliable insight into previous business
-performance of the Lee Johnson Auto Family's Kirkland location, and use those indicators to predict future business performance.
+performance of LJ, and use those indicators to predict future business performance.
 
-# 1. Digest a Prepare Data
 
-Raw sales data provided by LJ Auto Family has been summarized by month.
+### Project Overview:
 
-# 2. Find Indicators
 
-Potential candidates were chosen from a pool of 68 stocks, economic
-measures, information available from Google Trends, and internal
-appointment information. The candidates came from suggestions by Tod,
-other similar projects, and current market research.
 
-Candidate selection is not only one of the primary goals of this project, but it is an important step in preventing issues that may arise later. In general, one of the most chief concerns when training Machine Learning models is that the model performs well on the set of training data, but performs poorly when predicting new data. Among those in the field, this is known as _overfitting_. It is especially a concern in this project due to the small amount of available samples and small scope of data. Reducing the number of candidates used in each model through a (sometimes) model-specific process called _feature selection_ is a great way to avoid _overfitting_.
+# Methods:
 
-Indicators and their associated models can be found in the [Data Sources](#Data%20Sources) section.
+## 1. Digest a Prepare Data
 
-Indicators were identified using a variety of _feature selection_ techniques:
--   correlation coefficient
--   Lasso L1 regularization
--   Permutation Feature Importance
+Raw sales data provided by LJ has been cleaned and summarized by month.
 
-After compiling a list of suggested candidates, I excluded those that were:
+## 2. Find Indicators
+
+Potential candidates were chosen from a pool of stocks, economic
+measures, Google Trends data, and some internal
+appointment information. The process of selecting which candidates to examine was based on,
+other similar projects, current market research, and suggestions from experts.
+
+While finding leading indicators is one of the primary goals of the project, it is also a necessary step to achieve the second goal. One of the most important concerns when prediction and training Machine Learning models is called _overfitting_. This is a phenomenon that occurs when the model performs well on the training data, but performs much more poorly when it gets new information.
+
+The data that was analyzed for this project is especially prone to inducing overfitting due to its width. Because there are more features and relatively few observations, extra measures were taken to reduce overfitting.
+
+After compiling a list of suggested candidates, candidates that met the following criteria were excluded:
 -   Updated less frequently than every month
 -   Not released before the 5th of the month
 -   Not available for the duration of LJ data (2010-present)
 
-# 3. Create Predictions
+To identify candidates as leading indicators and permit use in each model, a variety of _feature selection_ techniques were employed:
+-   correlation coefficient
+-   Lasso L1 regularization
+-   Permutation Feature Importance
+
+## 3. Create Predictions
 
 After vetting each candidate, they were assembled into a dataset and given to each of the following models:
-a)  Linear Model with L1 regularization
+a)  Linear Model (with L1 regularization)
 b)  Decision Tree
 c)  Random Forest
 d)  LSTM
-e)  Composite Model
+e)  Ensemble Model: Binary Classification & GRU (BCGRU)
 
-Each model utilizes different algorithms to establish a relationship between the input and output. Thus, they must be interpreted differently. Below I describe some of the ways each model should generally be interpreted, and some additional considerations with respect to this project.
+Each model utilizes different algorithms to establish a relationship between the input and output. Thus, they must be interpreted differently. Some guidelines for model interpretation and additional considerations are described below.
 
 ### Linear Model with L1 regularization
+
 
 ### Decision Tree
 
@@ -80,11 +89,13 @@ Each model utilizes different algorithms to establish a relationship between the
 
 ### LSTM
 
-### Ensemble Model
+### BCGRU
 
-# 4. Figure Appendix
+# Results
 
-# 5. Indicator Index
+# Figure Appendix
+
+# Indicator Index
 
 ```{r, label="Set Bounds", include=FALSE, echo = FALSE}
 
@@ -104,9 +115,6 @@ nomonth <- ceiling_date(nmonth, unit = "month") - 1
 # bounds of last month on record
 pmonth <- nomonth + 1
 pqmonth <- ceiling_date(pmonth, unit = "month") - 1
-
-# days behind
-lmonth - pqmonth
 
 # report would be made on the 1st of
 repon <- pqmonth + 1
@@ -132,8 +140,8 @@ ljtheme <- function(){
       panel.grid.major = element_line(linetype = "solid", color = llightblue, linewidth = 0.1),
       panel.grid.minor = element_blank(),
       panel.background = element_rect(fill = white), #light
-      panel.border = element_rect(color = lightblue, fill = NA, linetype = "solid", size = 2),
-      legend.background = element_rect(fill = white, color = lightblue, size = 1), # legend
+      panel.border = element_rect(color = lightblue, fill = NA, linetype = "solid", linewidth = 2),
+      legend.background = element_rect(fill = white, color = lightblue, linewidth = 1), # legend
       legend.text = element_text(color = blue),
       legend.title = element_text(face = "bold.italic", color = blue),
       legend.position = "bottom",
@@ -168,33 +176,30 @@ integer_breaks <- function(n = 5, ...) {
 theme_set(ljtheme())
 ```
 
-## 1. Digestion
+## 1. Finding the Features
 
-After processing LJ data, all external indicators are fetched from the
+After processing sales data, all external indicators are fetched from the
 following sources and API packages monthly:
 
 -   Quandl
 -   AlphaVantage
     -   with the alpha_vantage library
 -   Google Trends
-    -   with the pytrends library
--   St. Louis Federal Reserve
+    -   with modifications to the pytrends library
+-   St. Louis Federal Reserve 
 
-This report should be generated on the **1st of each month**
+A full list of candidates, as well as which predictions they support, can be found in the Feature Appendix.
 
-Each source is lagged 2, 3, 6, and 12 months.
 
-## 2. Indicators
-
-Each source file contains multiple candidates. Each candidate is
-evaluated separately for simple correlation with respect to the target
+Each indicator is lagged at 3, 6, 9,and 12 month intervals to  create multiple candidates. Each candidate is
+evaluated for correlation to the target
 metric. Any candidate that does not meet the correlation threshold is
 eliminated as the first pass of feature selection.
 
 Features are further selected for each model independently in the
 following ways:
 
--   Linear Model
+-   Linear Regression
 
     -   Each remaining feature is passed through a Lasso regularization
         process, which selects features based on the efficacy of linear
@@ -209,8 +214,6 @@ following ways:
 
     ## Random Forest
 
-A simple correlation is calculated for each source with respect to the
-target metric. Based on
 
 ```{r}
 
@@ -268,7 +271,7 @@ data %>%
 
 # don't really care about latency, we can dynamically create plots based on parameters
 
-new_used <- "BOTH"
+new_used <- "NEW"
 movers_n <- 10
 
 # biggest movers from last month ??
@@ -301,17 +304,17 @@ movers %>%
   ggplot() + 
   
   geom_segment(aes(x = reorder(carname, change), y = last, xend = carname, yend = current, color = change > 0),
-               size = 10, lineend = "round") +
+               linewidth = 10, lineend = "round") +
   
   geom_point(aes(x = carname, y = current), color = "black", alpha = 0.2, size  = 10) +
 
   
-  geom_segment(aes(x = reorder(carname, change), y = current, xend = carname, yend = last),
+  geom_segment(aes(x = reorder(carname, change), y = ifelse(change > 0, current + 2, current - 2), xend = carname, yend = last),
                color = "white",
-               size = 1.1, lineend = "round", linejoin = "bevel",
+               linewidth = 1.1, lineend = "round", linejoin = "bevel",
                arrow = arrow(length = unit(0.15, "in"), ends = "first")) +
   
-  theme(axis.text.x = element_text(angle = 10),
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
         legend.position = "none") +
   
   scale_color_manual(values = c(red, green)) +
@@ -870,4 +873,4 @@ for (i in 1:nrow(info_df)) {
 # Credit
 
 Author: Keaton Markey Version: 0.11 Date Revised: 1/11/2023 Property of:
-Lee Johnson Auto Family, Kirkland WA
+Lee Johnson  , Kirkland WA

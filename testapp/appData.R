@@ -61,9 +61,9 @@ movers <- KDAc %>%
   slice_max(n = 10, order_by = abs(change), with_ties = FALSE)
 
 
-movers_plot <- newmonth %>%
+movers_plot <- movers %>%
   ggplot() + geom_segment(aes(x = reorder(carname, last), y = last, xend = carname, yend = current, color = change < 0),
-                            size = 3, lineend = "round", linejoin = "bevel",
+                            linewidth = 3, lineend = "round", linejoin = "bevel",
                             arrow = arrow(length = unit(0.2, "inches"), ends = "first")) +
   theme(axis.text.x = element_text(angle = -25),
         legend.position = "none") +
@@ -72,3 +72,5 @@ movers_plot <- newmonth %>%
        subtitle = repfor, 
        x = "",
        y = "Change In Sales This Month")
+
+movers_plot
