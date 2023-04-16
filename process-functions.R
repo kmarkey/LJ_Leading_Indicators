@@ -120,7 +120,7 @@ exam <- function(data, threshold = cor_max) {
     
     arrange(desc(abs(get(targetvar))))
   
-  print(out)
+  return(out)
 }
 
 # lag dataset

@@ -217,6 +217,11 @@ following ways:
 
 ```{r}
 
+# 6 months
+# 1 yr
+# 5 yr
+# all time
+
 new_used <- "NEW"
 purchase_lease <- "L"
 metric <- "n"
@@ -327,10 +332,9 @@ movers %>%
 ```
 
 ```{r Last 6 Months Sales}
-
 # n.months must be less than as.numeric(month(pmonth, abbr = FALSE, label = FALSE))
-n.months <- 6
-
+n.months <- 10
+  
 metric <- "n"
 
 metric_dict <- c(n = "Total Sales", 
@@ -855,14 +859,14 @@ info_df <- rbind(get_info(stock_info),
     dplyr::summarise(name, key, category, updated, `citation`, link)
 
  # add in best lag and usage per model here
-
+print(info_df)
 ```
 
 ```{r display-info, results='asis'}
 for (i in 1:nrow(info_df)) {
   cat("\n\n##[", info_df$name[i], "](", info_df$link[i], ")", sep = "")
   cat("\n_", info_df$key[i], "_", sep = "")
-  cat("\n__", info_df$category[i], "_", sep = "")
+  cat("\n__", info_df$category[i], "__", sep = "")
   cat("\n", info_df$updated[i], sep = "")
   cat("\n", info_df$citation[i], sep = "")
 }
@@ -872,5 +876,5 @@ for (i in 1:nrow(info_df)) {
 
 # Credit
 
-Author: Keaton Markey Version: 0.11 Date Revised: 1/11/2023 Property of:
-Lee Johnson  , Kirkland WA
+Author: Keaton Markey Version: 1.0 
+Date Revised: 1/11/2023

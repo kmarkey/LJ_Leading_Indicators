@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import re
 from thon.config import config_logger, close_logger
-from datetime import date, datetime as dt
+from datetime import datetime as dt
 import time
 from alpha_vantage.timeseries import TimeSeries # AV
 import pandas_datareader as pdr # access fred
@@ -17,13 +17,20 @@ from bs4 import BeautifulSoup
 
 class manager:
     
-    def __init__(self, keyname, keypath = "./keys/keys.txt", boundpath = "./keys/bounds.csv", data_class = None):
+    def __init__(self, data_class, keyname, search_lower = None, search_upper = None, keypath = "./keys/keys.txt", boundpath = "./keys/bounds.csv"):
         
         self.log = config_logger()
         
-        self.key = self.__get_key__(keyname = keyname, keypath = keypath)
+        self.key = self.__key_from_file__(keyname = keyname, keypath = keypath)
         
-        self.search_lower, self.search_upper = self.__bounds__(boundpath)
+        if search_lower == None and search_upper == None:
+            
+            self.search_lower, self.search_upper = self.__bounds_from_file__(boundpath)
+        else:
+          
+            self.search_lower = search_lower
+            
+            self.search_upper = search_upper
         
         self.data_class = data_class
         
@@ -31,7 +38,7 @@ class manager:
         
         self.exist = pd.read_csv(self.data_path)
         
-    def __bounds__(self, boundpath):
+    def __bounds_from_file__(self, boundpath):
         
         try:
           
@@ -44,16 +51,16 @@ class manager:
             self.log.debug("Lower bound set to: {l} and upper bound set to {u}".format(l = lower, u = upper))
             
             return lower, upper
-    
-        except FileNotFoundError:
-            self.log.exception("Bounds file not found")
           
         except:
-            self.log.exception("Bounds file formatted incorrectly")
+            
+            self.log.exception("Bounds file not read")
+            
+            return None
             
         close_logger(self.log)
             
-    def __get_key__(self, keyname, keypath):
+    def __key_from_file__(self, keyname, keypath):
       
         # not quite parsing correctly but still works with \n
         keys = {}
@@ -76,7 +83,7 @@ class manager:
           
             self.log.exception("{} is not a valid key class".format(keyname))
         
-        else:
+        except:
           
             self.log.error("Error getting keys")
             
@@ -85,6 +92,7 @@ class manager:
         close_logger(self.log)
     
     @property
+    
     def recyclable(self):
         
         if (dt.strptime(self.search_lower, "%Y-%m-%d").month >= dt.strptime(self.exist["date"].min(), "%Y-%m-%d").month and
@@ -97,7 +105,7 @@ class manager:
             
         else:
             
-            return False #test
+            return False # test
             
     def save_data(self, out):
         
@@ -112,6 +120,7 @@ class manager:
     def save_info(self, info):
         
         with open("./data/out/{}_info.json".format(self.data_class), "w") as outfile:
+            
             json.dump(info, outfile)
             
         self.log.info("".join(["{}_info.json saved!".format(self.data_class)]))
@@ -120,11 +129,12 @@ class manager:
         
         return
 
+
 class stocks(manager):  
     
-    def __init__(self, keyname = "alphavantage_key", data_class = "stocks"):
+    def __init__(self, search_lower = None, search_upper = None, data_class = "stocks", keyname = "alphavantage_key"):
         
-        super().__init__(keyname = keyname, data_class = data_class)
+        super().__init__(search_lower = search_lower, search_upper = search_upper, keyname = keyname, data_class = data_class)
         
     def get_csv(self, stocklist, save = True):
       
@@ -237,7 +247,7 @@ class stocks(manager):
             
             except:
                 
-                name = None
+                name = ""
                 
                 self.log.info("Could not find name for {}".format(s))
                 
@@ -253,7 +263,7 @@ class stocks(manager):
                 
             except:
                 
-                category = None
+                category = ""
                 
                 self.log.info("Could not find category for {}".format(s))
                 
@@ -283,11 +293,12 @@ class stocks(manager):
         
         return
 
+
 class fred(manager):
     
-    def __init__(self, keyname = "fred_key", data_class = "fred"):
+    def __init__(self, search_lower = None, search_upper = None, keyname = "fred_key", data_class = "fred"):
         
-        super().__init__(keyname = keyname, data_class = data_class)
+        super().__init__(search_lower = search_lower, search_upper = search_upper, keyname = keyname, data_class = data_class)
         
     def get_csv(self, fredpairs, save = True):
         
@@ -348,37 +359,46 @@ class fred(manager):
         
         for k, v in fredpairs.items():
             
-        # Define the URL of the webpage
             url = "https://fred.stlouisfed.org/series/{}".format(v)
         
-        # Send a request to the webpage and retrieve the HTML response
             response = requests.get(url, timeout = 5)
         
-        # Create a BeautifulSoup object from the HTML response
             try:
                 soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Find the element that contains the suggested citation
                 name = soup.find('span', {'id': 'series-title-text-container'}).text.strip()
                 
                 updated = soup.find('span', {'class': 'updated-text'})['title']
+                
                 try:
                     
                     category = soup.find('a', {'class': 'note-release series-release fg-ext-link-gtm fg-release-link-gtm'}).text.strip()
                 
                 except:
                     
-                    category = soup.find('p', {'class': 'col-xs-12 col-md-6 pull-left'}).text.strip().replace("  ", "").split("\n")[1]
+                    try:
+                        
+                        category = soup.find('p', {'class': 'col-xs-12 col-md-6 pull-left'}).text.strip().replace("  ", "").split("\n")[1]
+                        
+                    except:
+                        
+                        try:
+
+                            category = soup.find('p', {'class': 'col-12 col-md-6 float-start mb-2'}).text.strip().replace("  ", "").split("\n")[1]
+                            
+                        except:
+                            
+                            category = None
+                            
+                finally:
+                            
+                    citation = soup.find('p', {'class': 'citation'}).text.strip().replace("  ", "").replace("\n", " ")
                     
-                citation = soup.find('p', {'class': 'citation'}).text.strip().replace("  ", "").replace("\n", " ")
-                
-                tdict[k] = {"name": name, "code": v, "updated": updated, "category": category, 
-                            "citation": citation, "link": url}
+                    tdict[k] = {"name": name, "code": v, "updated": updated, "category": category, 
+                                "citation": citation, "link": url}
             except:
                 
                 self.log.info("Fred code {} not found".format(v))
-                
-                continue
                 
         self.info = tdict
         
@@ -396,11 +416,12 @@ class fred(manager):
         
         self.get_info(fredpairs = fredpairs, save = save)
 
+
 class trends(manager):
     
-    def __init__(self, keyname = "google_usr", data_class = "trends"):
+    def __init__(self, search_lower = None, search_upper = None, keyname = "google_usr", data_class = "trends"):
         
-        super().__init__(keyname = keyname, data_class = data_class)
+        super().__init__(search_lower = search_lower, search_upper = search_upper, keyname = keyname, data_class = data_class)
         
     def get_csv(self, glist, save = True):
     
@@ -542,13 +563,25 @@ class trends(manager):
         self.get_info(glist = glist, save = save)
 
 
-def collect_all(stocklist, fredpairs, glist, save = True):
+def collect_data(stocklist, fredpairs, glist, search_lower = None, search_upper = None, save = True):
     
-    s =  stocks()
-    s.collect(stocklist, save = save)
+    s = stocks(search_lower=search_lower, search_upper=search_upper)
+    s.get_csv(stocklist, save = save)
     
-    f = fred()
-    f.collect(fredpairs, save = save)
+    f = fred(search_lower=search_lower, search_upper=search_upper)
+    f.get_csv(fredpairs, save = save)
     
-    t = trends()
-    t.collect(glist, save = save)
+    t = trends(search_lower=search_lower, search_upper=search_upper)
+    t.get_csv(glist, save = save)
+    
+def collect_info(stocklist, fredpairs, glist, search_lower = None, search_upper = None, save = True):
+  
+    s = stocks(search_lower=search_lower, search_upper=search_upper)
+    s.get_info(stocklist, save = save)
+    
+    f = fred(search_lower=search_lower, search_upper=search_upper)
+    f.get_info(fredpairs, save = save)
+    
+    t = trends(search_lower=search_lower, search_upper=search_upper)
+    t.get_info(glist, save = save)
+

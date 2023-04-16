@@ -13,11 +13,11 @@ source("process-functions.R")
 
 here()
 
-cargs <- commandArgs(trailingOnly = TRUE)
-
-# parse command args and assign
-
-parmesean(cargs)
+# cargs <- commandArgs(trailingOnly = TRUE)
+# 
+# # parse command args and assign
+# 
+# parmesean(cargs)
 
 log_setup()
 
@@ -74,7 +74,7 @@ if (train_set == "pre-covid") {
 # pick target var
 wolf <- dplyr::select(wolf, all_of(targetvar), date)
 
-log_info("Proceeding with {nrow(month)} values of {targetvar}")
+log_info("Proceeding with {nrow(wolf)} values of {targetvar}")
 
 #=========================== data search bounds ================================
 
@@ -119,3 +119,5 @@ write_csv(wolf, "./data/in/wolf.csv")
 log_info("wolf and blank_m saved")
 
 log_info("End fishing.R")
+
+rm(month_all, blank_m)

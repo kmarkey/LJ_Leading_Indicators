@@ -93,7 +93,7 @@ log.info("******************run params*****************")
 # with subprocess.Popen(["Rscript", "--vanilla",  "Collage.R", "--args 12"], stdout=subprocess.PIPE) as proc:
 #     table = proc.stdout.read()
 
-def digest_data(arglist):
+def fetch_data(arglist):
   a = subprocess.run(config_rload("transform.R", arglist), check = True, text = True) # get stdout??!?!?!
   b = subprocess.run(config_rload("fishing.R", arglist), check = True, text = True) # get stdout??!?!?!
   c = collect_all(stocklist, fredpairs, glist)
@@ -104,7 +104,5 @@ def digest_data(arglist):
 # def eval_models()
 #   
 # def indicate():
-
-digest_data(arglist)
-
+collect_all(stocklist, fredpairs, glist)
 

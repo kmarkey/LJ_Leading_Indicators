@@ -15,6 +15,7 @@ ui <- dashboardPage(
   
 )
 
+
 server <- function(input, output, session) {
   
   # This is to get the desired menuItem selected initially. 
@@ -68,7 +69,6 @@ server <- function(input, output, session) {
     
     do.call(tabItems, items)
   })
-  
   # dynamic content in the dynamic subitems #
   observe({ 
     lapply(subitems(), function(x){
@@ -103,3 +103,11 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
+
+# progress bar
+# modeloutput= reactive(withProgress(message = 'Generating JAGs model', value = 0, {
+#   incProgress(50); generate_jags(params)
+# }))
+# 
+# output$jags = renderPlot(modeloutput())

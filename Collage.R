@@ -14,16 +14,16 @@ source("process-functions.R")
 here()
 
 # parse args
-cargs <- commandArgs(trailingOnly = TRUE)
+# cargs <- commandArgs(trailingOnly = TRUE)
+# 
+# # cargs to env
+# parmesean(cargs)
 
-# cargs to env
-parmesean(cargs)
-
-cor_max <- 0.20 # set feature correlation cutoff
-ahead <- 3 # set lead time in months (3)
-train_set <- "all" # data subset being used
-targetvar <- "n" # variable of interest
-bloat <- FALSE # favor wide over long feature data
+# cor_max <- 0.20 # set feature correlation cutoff
+# ahead <- 3 # set lead time in months (3)
+# train_set <- "all" # data subset being used
+# targetvar <- "n" # variable of interest
+# bloat <- FALSE # favor wide over long feature data
 
 # ============================ make logfile ====================================
 
@@ -69,7 +69,10 @@ if (!exists("stocks")) {
   
 }
 
-exam(stocks)
+log_info("{
+  round(
+    nrow(exam(stocks)) / ncol(stocks), 2) * 100}% pass from stocks.csv"
+         )
 #=================================== fred ======================================
 
 if (!exists("fred")) {
@@ -89,7 +92,10 @@ if (!exists("fred")) {
     
     }
 
-exam(fred)
+log_info("{
+  round(nrow(exam(fred)) / ncol(fred), 2) * 100}% pass from fred.csv"
+)
+
 #=============================== google trends =================================
 
 if (!exists("trends")) {
@@ -109,14 +115,19 @@ if (!exists("trends")) {
   
 }
 
-#=============================== supplemental data =============================
+log_info("{
+  round(nrow(exam(trends)) / ncol(trends), 2) * 100}% pass from trends.csv"
+)
 
+#=============================== supplemental data =============================
 supp <- blank_m %>%
     
     transmute(date = date,
               month = month(date),
               quarter = quarter(date),
               year = year(date))
+
+log_trace("Created supplemental data")
 
 # no support for ahead != 3
 
@@ -127,10 +138,8 @@ supp_ext <- tibble(date = c(max(blank_m$date) + months(1),
                    quarter = quarter(date),
                    year = year(date))
 
-log_trace("Created supplemental data")
 
-exam(supp)
-
+log_info("Including all supplemental data")
 #=============================== website views + users =========================
 # downloaded right now
 
@@ -151,8 +160,6 @@ if (!exists("website")) {
     log_info("reading web")
     
     }
-
-exam(website)
 
 # finished with web
 #================================= appointments? ===============================
@@ -194,7 +201,7 @@ complete_dirty <- dplyr::select(wolf, date, !!targetvar) %>%
 
 log_info("complete complete")
 
-log_info("Compiled {(ncol(complete_dirty) - 2)/5} potential features")
+log_info("Compiled {(ncol(complete_dirty) - 4)/5} potential features")
 
 if(sum(is.na(complete_dirty)) != 0) {
     
@@ -214,18 +221,19 @@ complete_cor <- complete_dirty %>%
 
 feature_dict <- as.data.frame(complete_cor) %>%
   
-  dplyr::select(!!targetvar) %>%# get correlation of all cols to n
+  dplyr::select(!!targetvar) %>% # get correlation of all cols to n
   
-  dplyr::filter(!!targetvar >= cor_max | !!targetvar <= -cor_max, !!targetvar  != 1) %>%# correlation cutoff
+  dplyr::filter(!!targetvar >= cor_max | !!targetvar <= -cor_max, !!targetvar != 1) %>% # correlation cutoff
   
   rownames_to_column("name") %>%
   
+  # lag must be 3+ and keep seasonal vars
   dplyr::filter(
     as.numeric(str_remove(name, ".*_lag")) >= ahead | !grepl(".*_lag", name)) %>%
   
   group_by(str_replace(name, "_lag.*", "")) %>% # group by source
   
-  slice_max(get(targetvar)) %>%# find features with highest cor to n
+  slice_max(get(targetvar), n = 1) %>% # find features with highest cor to n
   
   ungroup() %>%
   
@@ -236,6 +244,7 @@ log_info("Cooking down: Slicing at cor = {cor_max} and picking {length(feature_d
 #============================== prevent flow backup ============================
 
 # any NA's at the end of the df?
+
 dam <- names(complete_dirty)[which(is.na(complete_dirty[nrow(complete_dirty),]))]
 
 if (length(dam) > 0) {
@@ -267,7 +276,7 @@ if (bloat == FALSE) {
         na.omit()
 }
 
-log_info("Boiled off {ncol(complete_dirty) - ncol(features)} columns and {nrow(complete_dirty) - nrow(features)} rows")
+log_info("Trimmed off {ncol(complete_dirty) - ncol(features)} columns and {nrow(complete_dirty) - nrow(features)} rows")
 
 # write up supp for bin and month  (probably not used)
 
@@ -281,3 +290,5 @@ log_info("{ncol(features) - 1} features saved to features.csv, length {nrow(feat
 write_csv(features, "./data/out/features.csv")
 
 log_success("End collage.R")
+
+rm(stocks, fred, trends, complete_cor, complete_dirty)

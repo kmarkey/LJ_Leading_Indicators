@@ -1,10 +1,10 @@
 #! /usr/bin/Rscript
 
 # libraries
-library(dplyr)
+library(dplyr, quietly = TRUE)
 library(readr)
 library(stringr)
-library(lubridate)
+library(lubridate, quietly = TRUE)
 library(logger)
 library(here)
 library(tidyr)
@@ -18,10 +18,10 @@ log_setup()
 
 log_info("Running transform.R")
 
-cargs <- commandArgs(trailingOnly = TRUE)
+# cargs <- commandArgs(trailingOnly = TRUE)
 
 # parse command args and assign
-parmesean(cargs)
+# parmesean(cargs)
 
 #================================= first pass ==================================
 # set dir
@@ -116,17 +116,18 @@ month_all <- KDAt %>%
   
   dplyr::filter(date <= max_date, date >= min_date) %>%
   
-  mutate(fgp = sum(front_gross_profit, na.rm = T),
-         tgp = sum(total_gross_profit, na.rm = T),
-         cp = sum(cash_price, na.rm = T),
-         n = n(),
-         fgp_a = sum(front_gross_profit, na.rm = T)/n(),
-         tgp_a = sum(total_gross_profit, na.rm = T)/n(),
-         cp_a = sum(cash_price, na.rm = T)/n(),
-         new_n = sum(ifelse(nu == "NEW", 1, 0), na.rm = T),
-         used_n = sum(ifelse(nu == "USED", 1, 0), na.rm = T)) %>%
-  
-  summarise(date, n, fgp, tgp, cp, fgp_a, tgp_a, cp_a, new_n, used_n) %>%
+  transmute(
+    date = date,
+    fgp = sum(front_gross_profit, na.rm = T),
+    tgp = sum(total_gross_profit, na.rm = T),
+    cp = sum(cash_price, na.rm = T),
+    n = n(),
+    fgp_a = sum(front_gross_profit, na.rm = T) / n(),
+    tgp_a = sum(total_gross_profit, na.rm = T) / n(),
+    cp_a = sum(cash_price, na.rm = T) / n(),
+    new_n = sum(ifelse(nu == "NEW", 1, 0), na.rm = T),
+    used_n = sum(ifelse(nu == "USED", 1, 0), na.rm = T)
+  ) %>%
   
   ungroup() %>%
   
@@ -141,9 +142,6 @@ if (sum(is.na(month_all)) > 0) {
     log_info("month_all is pristine")
     
 }
-#============================= seasonal adjustment =============================
-
-log_trace("No seasonal adjustment")
 
 log_trace("Saving monthly data")
 

@@ -49,22 +49,22 @@ ljtheme <- function() {
       
       
       strip.text.x = element_text(
-        size = 12,
+        size = 16,
         color = white,
         face = "bold.italic"
       ),
       strip.text.y = element_text(
-        size = 12,
+        size = 16,
         color = white,
         face = "bold.italic"
       ),
       text = element_text(color = white),
       axis.title = element_text(
         face = "italic",
-        size = 11,
+        size = 16,
         color = white
       ),
-      axis.text = element_text(color = white, size = 9),
+      axis.text = element_text(color = white, size = 14),
       axis.ticks = element_line(
         color = white,
         linewidth = .5,
@@ -75,7 +75,7 @@ ljtheme <- function() {
         face = "bold",
         # labels
         color = white,
-        size = 14,
+        size = 20,
         hjust = 0,
         vjust = 1.5
       ),

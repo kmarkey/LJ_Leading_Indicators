@@ -83,5 +83,5 @@ def bake(y_train, y_test, pred_train, pred_test, pred):
     
     pred = pd.DataFrame({'pred': pred, 'actual': np.nan, 'group': 'pred'})
     
-    return pd.concat([train, test, pred], axis = 0)
+    return pd.concat([train, test, pred], axis = 0, ignore_index = True)
 
