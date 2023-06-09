@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import date, datetime as dt 
 
-
+# sensetive to daily file name
 def config_logger(logfile = "./logs/my_log_" + str(date.today()) + ".log", filelevel = logging.INFO):
   
     fmt = '%(levelname)s [%(asctime)s] %(message)s'
@@ -25,7 +25,8 @@ def config_logger(logfile = "./logs/my_log_" + str(date.today()) + ".log", filel
         f = open(logfile, "w+")
         fh = logging.FileHandler(logfile)
         fh.setFormatter(formatter)
-        
+     
+    # console handler
     ch = logging.StreamHandler()
     ch.setFormatter(formatter)
 
@@ -46,8 +47,8 @@ def close_logger(_logger):
     #     _logger.removeHandler(h)
     #     h.close()
 
-def config_rload(script, arglist):
-  load = ["Rscript", "--vanilla", script, "--args"]
-  load.extend(arglist)
+# def config_rload(script, arglist):
+#   load = ["Rscript", "--vanilla", script, "--args"]
+#   load.extend(arglist)
   
-  return(load)
+#   return(load)

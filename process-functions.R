@@ -153,14 +153,13 @@ trim_it <- function(data, name, ruler = blank_m) {
 }
 
 log_setup <- function() {
+  library(logger)
   my_logfile <- paste0("./logs/my_log_", Sys.Date(), ".log")
   
-  if  (file.exists(my_logfile)) {
-    
+  if (file.exists(my_logfile)) {
     log_appender(appender_tee(my_logfile))
     
   } else {
-    
     file.create(my_logfile)
     log_appender(appender_tee(my_logfile))
     

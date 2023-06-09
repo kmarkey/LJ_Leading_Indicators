@@ -27,53 +27,9 @@ log_info("Running transform.R")
 # set dir
 here()
 
-# read in raw
-# KDA_2016 <- read_xlsx("data/sour/Keaton Data Analysis Project-2016-2020.xlsx",
-#                    na = c("", "-", "==", "==-", "	 -   ", " -   ", " ", "  "), 
-#                    skip = 1, trim_ws = TRUE, col_names = TRUE)
-# 
-# KDA_2010 <- read_xlsx("data/sour/Markey Project 010110-123110.xlsx", skip = 1, 
-#                       na = c("", "-", "==", "==-", "	 -   ", " -   ", " ", "  "),
-#                       trim_ws = TRUE, col_names = TRUE)
-# 
-# KDA_2011 <- read_xlsx("data/sour/Markey Project 010111-123115.xlsx", skip = 1, 
-#                       na = c("", "-", "==", "==-", "	 -   ", " -   ", " ", "  "),
-#                       trim_ws = TRUE, col_names = TRUE)
-# 
-# KDA_2022 <- read_xlsx("data/sour/Markey Project 110120-093022.xlsx", skip = 1, 
-#                       na = c("", "-", "==", "==-", "	 -   ", " -   ", " ", "  "),
-#                       trim_ws = TRUE, col_names = TRUE)
-# 
+source("bucket.R")
 
-if (exists("newdata")) {
-    
-    adata <- read_csv(newdata)
-    
-    log_info("Reading in newdata")
-    
-    adata <- clean_kda(adata)
-    
-    if (max(KDAt$date) < min(adata$date)) {
-        
-        # append data
-        KDAt <- read_csv("./data/sour/KDAt.csv", show_col_types = FALSE)
-        
-        log_info("Appending {nrow(adata)} rows to KDAt")
-        
-        write_csv(adata, "./data/sour/KDAt.csv", append = TRUE)
-        
-        }
-    }
-
-#  read in new and clean
-KDAt <- read_csv("./data/sour/KDAt.csv", show_col_types = FALSE) %>%
-    
-    clean_kda()
-
-# write out clean for reporting
-write_csv(KDAt, "./data/sour/KDAc.csv")
-
-log_info("Opened KDAt with {nrow(KDAt)} rows and {ncol(KDAt)} columns")
+log_info("Opened KDAc with {nrow(KDAc)} rows and {ncol(KDAc)} columns")
 
 
 #================================= date bounds =================================
@@ -81,9 +37,9 @@ log_trace("Fencing in dates")
 
 # this isn't going to change
 # first eligible date 
-if (min(KDAt$date) == as.Date("2010-01-02")) {
+if (min(KDAc$date) == as.Date("2010-01-02")) {
     
-    min_date <- min(KDAt$date) - 1 # first day is the 1st of the month?
+    min_date <- min(KDAc$date) - 1 # first day is the 1st of the month?
     
 } else { # should never happen
     
@@ -92,13 +48,13 @@ if (min(KDAt$date) == as.Date("2010-01-02")) {
 }
 
 # last eligible date
-if (max(KDAt$date) == ceiling_date(max(KDAt$date), unit = "month") - 1) {
+if (max(KDAc$date) == ceiling_date(max(KDAc$date), unit = "month") - 1) {
     
-    max_date <- max(KDAt$date) # last day is last of the month?
+    max_date <- max(KDAc$date) # last day is last of the month?
     
 } else { # else get last full month
     
-    max_date <- floor_date(max(KDAt$date), unit = "month") - 1
+    max_date <- floor_date(max(KDAc$date), unit = "month") - 1
     
 }
 
@@ -110,7 +66,7 @@ log_info("Data available from {min_date} to {max_date}")
 log_trace("Grabbing months")
 
 # get month totals
-month_all <- KDAt %>%
+month_all <- KDAc %>%
   
   group_by(date = floor_date(date, unit = "month"), .drop = FALSE) %>%
   

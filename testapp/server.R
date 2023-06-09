@@ -1,32 +1,6 @@
-#
-# This is the server logic of a Shiny web application. You can run the
-# application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
+
 #
 #    http://shiny.rstudio.com/
-#
-# Define server logic required to draw a histogram
-# shinyServer(function(input, output) {
-# 
-#     
-#   
-#   
-#   
-#   output$distPlot <- renderPlot({
-# 
-#         # generate bins based on input$bins from ui.R
-#         x    <- faithful[, 2]
-#         bins <- seq(min(x), max(x), length.out = input$bins + 1)
-# 
-#         # draw the histogram with the specified number of bins
-#         hist(x, breaks = bins, col = 'darkgray', border = 'white',
-#              xlab = 'Waiting time to next eruption (in mins)',
-#              main = 'Histogram of waiting times')
-# 
-#     })
-# 
-# })
 
 library(tidyverse)
 
@@ -54,112 +28,63 @@ repon <- pqmonth + 1
 # report is for the month of
 repfor <- paste0(month(pqmonth, label = TRUE, abbr = FALSE), ", ", year(pqmonth))
 
-group_unit <- function(group) {
-  if (group == "daily") {
-    return("day")
-  } else return(substr(group, 1, nchar(group) - 2))
-}
 
-function(input, output, session) {
-  # first 6 months tab
-    # first_months <- reactiveValues(daterange = c("2022-01-01", "2022-02-02"),
-    #                                timeframe = "all_time",
-    #                                resolution = "monthly",
-    #                                purchase_lease = "both",
-    #                                metric = "n",
-    #                                new_used = "new",
-    #                                data = NULL)
-    
-    # a <- bindEvent(reactive(input$all_time),
-    #                      
-    #                      
-    #             
-    #           # observe(input$all_time),
-    #           # observe(input$past_5),
-    #           # observe(input$past_1),
-    #           # observe(input$past_6), 
-    #           # reactive(input$daterange), 
-    #           {
-    #   output$text <- renderText(paste0(input$all_time))
-    #   data <- NULL
-    # })
-    
-    # bindEvent(observe(input$all_time), {
-    #   
-    #   output$text <- renderText(paste0(input$daterange))
-    # })
-    
-    # b <- bindEvent(reactive(input$monthly), {
-    #   
-    #   output$text <- renderText(paste0(input$monthly, "monthly"))
-    #   data <- runif(100)
-    #   
-    # })
-    # 
-    # c <- bindEvent(reactive(input$weekly), observe(input$weekly), {
-    #   
-    #   output$text <- renderText(paste0(input$weekly, "weekly"))
-    #   data <- runif(100)
-    #   
-    # })
-    # fm <- reactiveValues(timeframe = "all_time",
-    #                      resolution = "yearly",
-    #                      purchase_lease = c("P", "L"),
-    #                      new_used = c("N", "U"),
-    #                      metric = "number_of_sales",
-    #                      data = NULL)
-    
-    # (input$run, { fm$timeframe <- input$timeframe
-    #                           fm$resolution <- input$resolution
-    #                           fm$purchase_lease <- input$purchase_lease
-    #                           fm$metric <- input$metric
-    #                           fm$new_used <- input$new_used })
-    # 
+server <- function(input, output) {
+
     # calculate values
-
-  
+    timeframe_f <- function(t) {
+      case_when(
+        t == "all_time" ~ as.Date(c(min(KDAc$date), max(KDAc$date))),
+        t == "past_5" ~ as.Date(c(
+          max(KDAc$date) - years(5), max(KDAc$date)
+        )),
+        t == "past_1" ~ as.Date(c(
+          max(KDAc$date) - years(1), max(KDAc$date)
+        )),
+        t == "past_6" ~ as.Date(c(
+          max(KDAc$date) - months(6, abbreviate = FALSE), max(KDAc$date)
+        ))
+      )
+    }
     
     output$plot_history <- renderPlot({
       
-      # reactive expression function for timeframe conversion
-      timeframe_f <- reactive({
-        case_when(
-          input$timeframe == "all_time" ~ as.Date(c(min(KDAc$date), max(KDAc$date))),
-          input$timeframe == "past_5" ~ as.Date(c(max(KDAc$date) - years(5), max(KDAc$date))),
-          input$timeframe == "past_1" ~ as.Date(c(max(KDAc$date) - years(1), max(KDAc$date))),
-          input$timeframe == "past_6" ~ as.Date(c(max(KDAc$date) - months(6, abbreviate = FALSE), max(KDAc$date))), 
-        )
-      })
-      
-      # begin plotting
-      KDAc %>%
+      data <- KDAc %>%
         
         # timeframe
-        dplyr::filter(between(date, timeframe_f()[1], timeframe_f()[2])) %>%
+        dplyr::filter(between(
+          date,
+          timeframe_f(input$timeframe)[1],
+          timeframe_f(input$timeframe)[2]
+        )) %>%
         
         # purchased or leased
         {
           if ((all(input$purchase_lease == "P") |
-               all(input$purchase_lease == "L")) & !is.null(input$purchase_lease))
+               all(input$purchase_lease == "L")) &
+              !is.null(input$purchase_lease))
             
             dplyr::filter(., pl == input$purchase_lease)
           
           else
             .
+          
         } %>%
         
         # new used
         {
           if ((all(input$new_used == "NEW") |
-               all(input$new_used == "USED")) & !is.null(input$new_used))
+               all(input$new_used == "USED")) &
+              !is.null(input$new_used))
             
             dplyr::filter(., nu == input$new_used) # this and last month
+          
           else
             .
         } %>%
         
         #  resolution
-        dplyr::group_by(!!paste(input$resolution) := floor_date(date,!!input$resolution)) %>%
+        dplyr::group_by(., !!input$resolution := floor_date(date, input$resolution)) %>%
         
         # metric
         {
@@ -169,29 +94,26 @@ function(input, output, session) {
           
           else
             
-            dplyr::summarise(.,!!paste(input$metric) := mean(get(input$metric), na.rm = TRUE), date)
-        } %>%
+            dplyr::summarise(., !!input$metric := mean(get(input$metric), na.rm = TRUE), date)
+        }
+      
+      ggplot(data) +
         
-        ggplot() +
-        
-        geom_line(aes(x = date, y = get(input$metric)), color = blue, linewidth = 2) +
-        
-        geom_line(aes(x = date, y = get(input$metric)), color = lightblue, linewidth = 1) +
+        geom_line(aes(x = date, y = get(input$metric)),
+                  color = blue,
+                  linewidth = 2) +
         
         labs(x = str_to_title(input$resolution),
-             y = paste(str_to_title(str_replace_all(input$metric, "_", " ")))) +
+             y = paste(str_to_title(str_replace_all(
+               input$metric, "_", " "
+             )))) +
         
         # always show 0
         expand_limits(y = 0) +
         
-        coord_cartesian(xlim = c(timeframe_f()[1], timeframe_f()[2]))+
-        
-        # add theme
-        ljtheme()
-      
-    }, height = 600) %>% 
-      
-      bindEvent(input$run)
+        coord_cartesian(xlim = c(timeframe_f(input$timeframe)[1], timeframe_f(input$timeframe)[2]))
+    }
+    )
     
     output$plot_movers <- renderPlot({
       
@@ -222,9 +144,6 @@ function(input, output, session) {
         ungroup() %>%
         
         slice_max(n = input$n_movers, order_by = abs(change), with_ties = FALSE)
-      
-      
-      # doesnt look quite right???
       
       # start plotting
       data %>%
@@ -261,8 +180,7 @@ function(input, output, session) {
           color = "white",
           linewidth = 1.1,
           lineend = "round",
-          linejoin = "bevel",
-          arrow = arrow(length = unit(0.15, "in"), ends = "first")
+          linejoin = "bevel"
         ) +
         
         theme(axis.text.x = element_text(
@@ -270,6 +188,7 @@ function(input, output, session) {
           hjust = 1,
           vjust = 0.5
         ),
+        
         legend.position = "none") +
         
         scale_color_manual(values = c(red, green)) +
@@ -281,11 +200,60 @@ function(input, output, session) {
           y = "Change In Sales"
         )
       
-    }) %>%
-      # dependent on all user params
-      bindEvent(input$new_used_movers, input$n_movers)
-    
-    output$text <- renderText(class(input$timeframe[1]))
-    
     }
-
+    )
+    
+    output$text <- renderText({
+        
+        data <- KDAc %>%
+        
+        # timeframe
+        dplyr::filter(between(
+          date,
+          timeframe_f(input$timeframe)[1],
+          timeframe_f(input$timeframe)[2]
+        )) %>%
+        
+        # purchased or leased
+        {
+          if ((all(input$purchase_lease == "P") |
+               all(input$purchase_lease == "L")) &
+              !is.null(input$purchase_lease))
+            
+            dplyr::filter(., pl == input$purchase_lease)
+          
+          else
+            .
+          
+        } %>%
+        
+        # new used
+        {
+          if ((all(input$new_used == "NEW") |
+               all(input$new_used == "USED")) &
+              !is.null(input$new_used))
+            
+            dplyr::filter(., nu == input$new_used) # this and last month
+          
+          else
+            .
+        } %>%
+        
+        #  resolution
+        dplyr::group_by(., !!input$resolution := floor_date(date, input$resolution)) %>%
+        
+        # metric
+        {
+          if (input$metric == "number_of_sales")
+            
+            dplyr::summarise(., number_of_sales = n(), date)
+          
+          else
+            
+            dplyr::summarise(., !!input$metric := mean(get(input$metric), na.rm = TRUE), date)
+        }
+        
+        ncol(data)
+        }
+    )
+    }

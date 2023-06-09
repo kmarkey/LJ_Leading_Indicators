@@ -1,5 +1,5 @@
 ---
-title: 'Leading Indicators for LJ Kirkland'
+title: 'Leading Indicators'
 subtitle: 'First Report'
 author: "Keaton Markey"
 date:  "`r format(Sys.time(), '%d %B, %Y')`"
@@ -30,68 +30,139 @@ library(scales)
 library(tidyr)
 library(readr)
 ```
+
 # Introduction:
 
 ### Project Aim:
 
-Find external indicators that provide reliable insight into previous business
-performance of LJ, and use those indicators to predict future business performance.
-
+Find external indicators that provide reliable insight into previous
+business performance of LJ, and use those indicators to predict future
+business performance.
 
 ### Project Overview:
 
-
-
 # Methods:
 
-## 1. Digest a Prepare Data
+## 1. Digest & Prepare Data
 
-Raw sales data provided by LJ has been cleaned and summarized by month.
+Raw sales data, cleaned and summarized by month. Potential indicators
+were grouped by data source and summarized by month. They are refreshed
+each month.
 
 ## 2. Find Indicators
 
-Potential candidates were chosen from a pool of stocks, economic
-measures, Google Trends data, and some internal
-appointment information. The process of selecting which candidates to examine was based on,
-other similar projects, current market research, and suggestions from experts.
+Potential candidates were identified by other similar projects, current
+market research, and suggestions from experts. They were selected from a
+pool of stocks, economic measures, Google Trends, and some internal
+appointment information. Finding leading indicators is also a necessary
+step to create accurate and reliable predictions.
 
-While finding leading indicators is one of the primary goals of the project, it is also a necessary step to achieve the second goal. One of the most important concerns when prediction and training Machine Learning models is called _overfitting_. This is a phenomenon that occurs when the model performs well on the training data, but performs much more poorly when it gets new information.
+After compiling a list of potential candidates, candidates that met the
+following criteria were excluded:
 
-The data that was analyzed for this project is especially prone to inducing overfitting due to its width. Because there are more features and relatively few observations, extra measures were taken to reduce overfitting.
-
-After compiling a list of suggested candidates, candidates that met the following criteria were excluded:
 -   Updated less frequently than every month
 -   Not released before the 5th of the month
--   Not available for the duration of LJ data (2010-present)
+-   Not available for the duration of available data (2010-present)
 
-To identify candidates as leading indicators and permit use in each model, a variety of _feature selection_ techniques were employed:
--   correlation coefficient
--   Lasso L1 regularization
+Identifying leading indicators can be translated to a machine learning
+problem called *feature selection*. The feature selection processes used in this project sometimes combine conventional statistics and machine learning methods.
+
+Candidates were all passed through a low correlation filter of \>
+0.20, and only the two indicators with the highest correlation from each
+source were selected. After a candidate has passed these filters, it is conventionally called a _feature_.
+
+Then, as a final measure of identifying leading indicators, the following machine learning techniques were employed:
+
+-   Lasso L1 Regularization
+-   Impurity pruning
 -   Permutation Feature Importance
 
 ## 3. Create Predictions
 
-After vetting each candidate, they were assembled into a dataset and given to each of the following models:
-a)  Linear Model (with L1 regularization)
+After identifying candidates, each of the following models was paired
+with a feature selection technique and trained on the assembled data:
+
+a)  Linear Model
 b)  Decision Tree
 c)  Random Forest
 d)  LSTM
-e)  Ensemble Model: Binary Classification & GRU (BCGRU)
+e)  GRU
 
-Each model utilizes different algorithms to establish a relationship between the input and output. Thus, they must be interpreted differently. Some guidelines for model interpretation and additional considerations are described below.
+Each model utilizes different methods to establish a relationship
+between the candidates and business performance. Thus, they must be
+interpreted differently. Some guidelines for model interpretation and
+additional model considerations are described below.
 
 ### Linear Model with L1 regularization
 
+The linear model establishes a linear relationship between each feature
+and the output. This is the most simple method and typically very
+effective. Feature selection was performed with 5-fold cross-validation
+through Lasso regression, optimized for mean-squared-error.
+
+The leading indicators used in this model are best described as those with the strongest linear relationship to business performance.
 
 ### Decision Tree
 
+The decision tree is another simpler method of prediction. The current
+model is illustrated in a function below.
+
+###### PHOTO 
+
+5-fold cross-validation was used to select tree depth and the optimal number of features. The model is scored with mean-squared-error. Additionally, this model is more resistant to monthly changes and can be interpreted as a slow-moving estimation. The leading indicators used in this model can be interpreted as those with the greatest impact on minimizing the residual error of the model.
+
 ### Random Forest
+
+A random forest is a collection of hundreds of randomly generated decision trees that sums up votes from each tree. This method is less sensitive to large changes due to the voting system. Each tree uses between 3 and 4 features randomly selected from a pool of all features.
 
 ### LSTM
 
-### BCGRU
+A LSTM (Long-Short-Term-Memory) is a deep neural network that is well-suited to the problem of time-series prediction. This is the most complex model used in this project. Due to the small size of the data, the model is heavily throttled by hidden layer size and training duration.
+
+These can be described as leading indicators with the greatest impact on on minimizing the residual error of the model.
+
+### GRU
+
+A GRU is the younger brother to the LSTM, with a little less complexity. The model uses the same hyperparameters as the LSTM.
 
 # Results
+
+
+
+# Discussion
+
+One of the most important concerns when prediction and training machine
+learning models is called *overfitting*. This is a phenomenon that
+occurs when the model fits the training data very well, but performs
+poorly when asked to predict new data. In other words, the algorithms
+are able to establish relationships that exist in the data from the
+past, but can't be generalized to make accurate predictions about the
+future. Every kind of model is prone to overfitting, and the models in this project were especially at risk of creating this problem. One way to prevent overfitting is to usemore data. Adding more data to the model is the best way to increase
+generalization. The current models are trained on between 100 and 120
+monthly sales totals, which leaves much to be desired. 
+
+I would be comfortable to deploy the prediction phase of this project when the test scores are, on average no more than 100% larger than the training scores.
+
+_________ prediction power ______________
+
+Another way to reduce overfitting is by removing some features. This was done by selecting only the most important features (leading indicators) from over 300 candidates. With less features to choose from, models estimate important relationships instead of just calculating changes in the data.
+
+With so many candidates for leading indicators, more monthly data could dramatically affect the output of feature
+selection and model performance tests. Often methods like bootstrapping and sampling are used to increase the number of observations, but with time series data there is little that can be done without disrupting the sequential nature of observations. We could also considered other intervals, such as weekly or bi-weekly, but would likely introduce more variance and restrict candidate selection even further.
+
+Additionally, with all the data the models use, it is possible that there is more economic information, stock trades, or other metric that may prove useful. More features may still be necessary to improve prediction of business performance and reduce overfitting.
+In the future, including more monthly observations and more feature candidates is necessary for improving this project.
+
+## COVID-19
+
+In April of 2020, the United States entered a lockdown. This is a problem for two reasons. First, only two sales in the month of April 2020, which is a big outlier. Normally, sales hover between 200 and 400 per month. Such a big deviation affects machine learning algorithms greatly, and instead of extracting relationships across the whole time period, they would focus on the one or two months that are outliers. I have avoided this issue by removing a couple of months while training, but its important to note that these months aren't included in the model.
+
+The second and more serious issue is how the pandemic disrupted the economy. While it had a direct impact on sales for this business, it also disrupted the business relationship between groups across the world. Many organizations underwent a period of rapid change, where few emerged operating exactly how they did before  April 2020.
+
+The challenge with trying to predict business performance during this time is that whatever unidentified relationships existed between businesses before the pandemic have been changed or dissolved entirely. Currently, the models use the time before the pandemic to predict the business performance all future months. Without a way to quantify relationships that emerged after April 2020, the models make the assumption that the landscape of candidates and their relationship to this business has not changed since then.
+
+
+# 
 
 # Figure Appendix
 
@@ -178,23 +249,23 @@ theme_set(ljtheme())
 
 ## 1. Finding the Features
 
-After processing sales data, all external indicators are fetched from the
-following sources and API packages monthly:
+After processing sales data, all external indicators are fetched from
+the following sources and API packages monthly:
 
 -   Quandl
 -   AlphaVantage
     -   with the alpha_vantage library
 -   Google Trends
     -   with modifications to the pytrends library
--   St. Louis Federal Reserve 
+-   St. Louis Federal Reserve
 
-A full list of candidates, as well as which predictions they support, can be found in the Feature Appendix.
+A full list of candidates, as well as which predictions they support,
+can be found in the Feature Appendix.
 
-
-Each indicator is lagged at 3, 6, 9,and 12 month intervals to  create multiple candidates. Each candidate is
-evaluated for correlation to the target
-metric. Any candidate that does not meet the correlation threshold is
-eliminated as the first pass of feature selection.
+Each indicator is lagged at 3, 6, 9,and 12 month intervals to create
+multiple candidates. Each candidate is evaluated for correlation to the
+target metric. Any candidate that does not meet the correlation
+threshold is eliminated as the first pass of feature selection.
 
 Features are further selected for each model independently in the
 following ways:
@@ -213,7 +284,6 @@ following ways:
 -   
 
     ## Random Forest
-
 
 ```{r}
 
@@ -649,7 +719,6 @@ nmonth_df %>%
 
 ```
 
-
 ```{r, label="Cumulative Tracker"}
 
 ```
@@ -665,8 +734,6 @@ nmonth_df %>%
 
 the data longitudinally. This is probably unnecessary but I'm going to
 do it anyway.
-
-
 
 #### Based on the models, we noticed a significant trend for all the metrics.
 
@@ -876,5 +943,4 @@ for (i in 1:nrow(info_df)) {
 
 # Credit
 
-Author: Keaton Markey Version: 1.0 
-Date Revised: 1/11/2023
+Author: Keaton Markey Version: 1.0 Date Revised: 1/11/2023

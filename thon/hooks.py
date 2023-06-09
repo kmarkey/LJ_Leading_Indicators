@@ -565,23 +565,23 @@ class trends(manager):
 
 def collect_data(stocklist, fredpairs, glist, search_lower = None, search_upper = None, save = True):
     
-    s = stocks(search_lower=search_lower, search_upper=search_upper)
+    s = stocks(search_lower = search_lower, search_upper=search_upper)
     s.get_csv(stocklist, save = save)
     
-    f = fred(search_lower=search_lower, search_upper=search_upper)
+    f = fred(search_lower = search_lower, search_upper=search_upper)
     f.get_csv(fredpairs, save = save)
     
-    t = trends(search_lower=search_lower, search_upper=search_upper)
+    t = trends(search_lower = search_lower, search_upper=search_upper)
     t.get_csv(glist, save = save)
     
 def collect_info(stocklist, fredpairs, glist, search_lower = None, search_upper = None, save = True):
   
-    s = stocks(search_lower=search_lower, search_upper=search_upper)
+    s = stocks(search_lower = search_lower, search_upper=search_upper)
     s.get_info(stocklist, save = save)
     
-    f = fred(search_lower=search_lower, search_upper=search_upper)
+    f = fred(search_lower = search_lower, search_upper=search_upper)
     f.get_info(fredpairs, save = save)
     
-    t = trends(search_lower=search_lower, search_upper=search_upper)
+    t = trends(search_lower = search_lower, search_upper=search_upper)
     t.get_info(glist, save = save)
 

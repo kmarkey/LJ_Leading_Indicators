@@ -52,22 +52,19 @@ if (!exists("wolf")) {
     }
 #============================== stocks =========================================
 
-if (!exists("stocks")) {
+temp <- read_csv("./data/in/stocks.csv", 
+                 
+                 col_types = list(date = col_date(format = "%Y-%m-%d"),
+                                  .default = col_double()))
+
+stocks <- temp %>%
   
-  temp <- read_csv("./data/in/stocks.csv", 
-                   
-                   col_types = list(date = col_date(format = "%Y-%m-%d"),
-                                    .default = col_double()))
+  trim_it("stocks") %>%
   
-  stocks <- temp %>%
-    
-    trim_it("stocks") %>%
-    
-    lag_it()
-  
-  log_trace("Reading stock data")
-  
-}
+  lag_it()
+
+log_trace("Reading stock data")
+
 
 log_info("{
   round(
@@ -75,22 +72,19 @@ log_info("{
          )
 #=================================== fred ======================================
 
-if (!exists("fred")) {
+temp <- read_csv("./data/in/fred.csv",
+                 
+                 col_types = list(date = col_date(format = "%Y-%m-%d"),
+                                  .default = col_double()))
+
+fred <- temp %>%
     
-    temp <- read_csv("./data/in/fred.csv",
-                     
-                     col_types = list(date = col_date(format = "%Y-%m-%d"),
-                                      .default = col_double()))
+    trim_it("fred") %>%
     
-    fred <- temp %>%
-        
-        trim_it("fred") %>%
-        
-        lag_it()
-    
-    log_trace("Reading in FRED data")
-    
-    }
+    lag_it()
+
+log_trace("Reading in FRED data")
+
 
 log_info("{
   round(nrow(exam(fred)) / ncol(fred), 2) * 100}% pass from fred.csv"
@@ -98,22 +92,19 @@ log_info("{
 
 #=============================== google trends =================================
 
-if (!exists("trends")) {
+temp <- read_csv("./data/in/trends.csv", 
+                 
+                 col_types = list(date = col_date(format = "%Y-%m-%d"),
+                                  .default = col_double()))
+
+trends <- temp %>%
     
-    temp <- read_csv("./data/in/trends.csv", 
-                     
-                     col_types = list(date = col_date(format = "%Y-%m-%d"),
-                                      .default = col_double()))
-  
-    trends <- temp %>%
-        
-        trim_it("trends") %>% # arranges high to low
-        
-        lag_it()
+    trim_it("trends") %>% # arranges high to low
     
-    log_trace("Reading Google Trends data")
-  
-}
+    lag_it()
+
+log_trace("Reading Google Trends data")
+
 
 log_info("{
   round(nrow(exam(trends)) / ncol(trends), 2) * 100}% pass from trends.csv"
@@ -143,23 +134,19 @@ log_info("Including all supplemental data")
 #=============================== website views + users =========================
 # downloaded right now
 
-if (!exists("website")) {
+website <- read_csv("./data/in/website.csv", skip = 5, show_col_types = FALSE)
+
+website <- website %>%
     
-    website <- read_csv("./data/in/website.csv", skip = 5, show_col_types = FALSE)
+    dplyr::transmute(date = as.Date("2013-04-01") + months(as.numeric(`Month Index`), abbreviate = FALSE),
+                     new_users = `New Users`,
+                     session_dur = as.numeric(`Avg. Session Duration`)/60) %>%# time in minutes
     
-    website <- website %>%
-        
-        dplyr::transmute(date = as.Date("2013-04-01") + months(as.numeric(`Month Index`), abbreviate = FALSE),
-                         new_users = `New Users`,
-                         session_dur = as.numeric(`Avg. Session Duration`)/60) %>%# time in minutes
-        
-        trim_it("website") %>%
-        
-        lag_it()
+    trim_it("website") %>%
     
-    log_info("reading web")
-    
-    }
+    lag_it()
+
+log_info("Reading web data")
 
 # finished with web
 #================================= appointments? ===============================
@@ -187,7 +174,7 @@ complete_dirty <- dplyr::select(wolf, date, !!targetvar) %>%
     # google results
     left_join(trends, by = "date") %>%
     
-    # leejohnson.com page views
+    # webpage views
     # left_join(website, by = "date") %>%
     
     # seasonal data
@@ -205,9 +192,9 @@ log_info("Compiled {(ncol(complete_dirty) - 4)/5} potential features")
 
 if(sum(is.na(complete_dirty)) != 0) {
     
-    log_warn("{sum(is.na(complete_dirty))} missing values in feature data")
+    log_info("{sum(is.na(complete_dirty))} missing values in complete dirty data")
   
-  }
+}
 
 #============================ wide cor filter ==================================
 
@@ -217,13 +204,13 @@ complete_cor <- complete_dirty %>%
     
     cor(use = "pairwise.complete.obs")
 
-# select one lag per source that is above ahead and cor cutoff
+# select one lag per source that is above ahead and corr cutoff
 
 feature_dict <- as.data.frame(complete_cor) %>%
   
   dplyr::select(!!targetvar) %>% # get correlation of all cols to n
   
-  dplyr::filter(!!targetvar >= cor_max | !!targetvar <= -cor_max, !!targetvar != 1) %>% # correlation cutoff
+  dplyr::filter((!!targetvar >= cor_max | !!targetvar <= -cor_max) & !!targetvar != 1) %>% # correlation cutoff
   
   rownames_to_column("name") %>%
   
@@ -233,7 +220,7 @@ feature_dict <- as.data.frame(complete_cor) %>%
   
   group_by(str_replace(name, "_lag.*", "")) %>% # group by source
   
-  slice_max(get(targetvar), n = 1) %>% # find features with highest cor to n
+  slice_max(get(targetvar), n = 2) %>% # find features with highest cor to n
   
   ungroup() %>%
   
@@ -244,8 +231,7 @@ log_info("Cooking down: Slicing at cor = {cor_max} and picking {length(feature_d
 #============================== prevent flow backup ============================
 
 # any NA's at the end of the df?
-
-dam <- names(complete_dirty)[which(is.na(complete_dirty[nrow(complete_dirty),]))]
+dam <- names(complete_dirty)[is.na(complete_dirty[nrow(complete_dirty),])]
 
 if (length(dam) > 0) {
     
@@ -255,7 +241,9 @@ if (length(dam) > 0) {
 
 #================================ set bloating =================================
 
-# Prefer wide df to long?
+# we  want as much longitudinal data as possible cause ts
+
+# Prefer long to wide df
 
 if (bloat == FALSE) {
   
@@ -263,12 +251,14 @@ if (bloat == FALSE) {
     blort <- colSums(sapply(complete_dirty, is.na))
     
     # keep bottom 50% with least nas
-    blort_names <- names(blort[blort <= round(mean(blort))])
+    blort_names <- names(blort[blort <= mean(blort)])
     
     features <- dplyr::select(complete_dirty, all_of(blort_names)) %>%
       
-        dplyr::select(!!targetvar, any_of(feature_dict), -any_of(dam))
-    
+        dplyr::select(!!targetvar, any_of(feature_dict), -any_of(dam)) %>%
+      
+      na.omit() # easy gojf
+      
 } else {
         
     features <- dplyr::select(complete_dirty, !!targetvar, all_of(feature_dict), -all_of(dam)) %>% # correlation

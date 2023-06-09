@@ -8,11 +8,13 @@
 #
 
 library(shiny)
-library(shinydashboard)
-library(shinyWidgets)
+# bslib instead of shiny dashboard
+library(bslib)
 
 library(tidyverse)
 library(lubridate)
+
+library(shinyWidgets)
 
 KDAc <- read_csv("../data/sour/KDAc.csv", show_col_types = FALSE)
 # generated on
@@ -35,172 +37,187 @@ repon <- pqmonth + 1
 # report is for the month of
 repfor <- paste0(month(pqmonth, label = TRUE, abbr = FALSE), ", ", year(pqmonth))
 
-
-
-
 ## ui.R ##
 
-header <- dashboardHeader(title = "LJ Leading Indicators",
-                          dropdownMenu(type = "messages",
-                               messageItem(
-                                 from = "Version",
-                                 message = "Product is up to date.",
-                                 icon = icon("code-compare")
-                                 ),
-                               messageItem(
-                                 from = "Support",
-                                 message = "Submit a maintenance query.",
-                                 icon = icon("circle-exclamation")
-                                 ))
-                          )
-
-
-sidebar <- dashboardSidebar(
-  sidebarMenu(
-    
-    menuItem("Business", tabName = "business", icon = icon("building"),
-             startExpanded = T,
-             menuSubItem("History", 
-                         tabName = "history",
-                         icon = icon("clock")),
-             menuSubItem("Biggest Movers", 
-                         tabName = "biggest-movers",
-                         icon = icon("car")),
-             menuSubItem("Ranking",
-                         tabName = "ranking",
-                         icon = icon("ranking-star"))),
-    
-    menuItem("Personnel", tabName = "personnel",  icon = icon("user-friends"),
-             menuSubItem("Top Salesman", 
-                         tabName = "top-salesman",
-                         icon = icon("user-tie")),
-             menuSubItem("Top Finance Manager", 
-                         tabName = "top-fi-manager",
-                         icon = icon("piggy-bank"))),
-    menuItem("Prediction", tabName = "prediction", icon = icon("cubes-stacked"),
-             badgeLabel = "dev", badgeColor = "orange")
+cards <- list(
+  "text" = card(
+    card_header("Text"),
+    textOutput("text")
+    ),
+  
+  "plot_history" = card(
+    full_screen = TRUE,
+    card_header("History"),
+    plotOutput("plot_history")
+  ),
+  
+  "plot_movers" = card(
+    full_screen = TRUE,
+    card_header("Biggest Movers"),
+    plotOutput("plot_movers")
   )
 )
+cards[['text']]
+# inputs
 
-body <- dashboardBody(
-  tabItems(
-    tabItem(tabName = "history",
-            column(12, 
-            
-              # dateRangeInput("daterange", label = "Input Date Range", 
-              #                start = min(KDAc$date), end = pqmonth, 
-              #                min = min(KDAc$date), max = pqmonth),
-              # 
-              fluidRow(
-                column(6,
-                       
-                  selectInput("timeframe", "Select Timeframe:", 
-                              choices = c("All Time" = "all_time", 
-                                          "Past 5 Years" = "past_5", 
-                                          "Past Year" = "past_1", 
-                                          "Past 6 Months" = "past_6"),
-                              selected = "all_time")
-                  ),
-                column(6,
-                       
-                  selectInput("resolution", "Select Resolution:", 
-                              choices = c("Yearly" = "year", 
-                                          "Monthly" = "month", 
-                                          "Weekly" = "week", 
-                                          "Daily" = "day"),
-                              selected = "month"),
-                  )),
-              
-              fluidRow(
-                column(6,
+color_by <- varSelectInput("color_by", "Color by",
+                           penguins[c("species", "island", "sex")],
+                           selected = "species")
+
+timeframe <- selectInput(
+  "timeframe",
+  "Select Timeframe:",
+  choices = c(
+    "All Time" = "all_time",
+    "Past 5 Years" = "past_5",
+    "Past Year" = "past_1",
+    "Past 6 Months" = "past_6"
+  ),
+  selected = "all_time"
+)
+
+resolution <- selectInput(
+  "resolution",
+  "Select Resolution:",
+  choices = c(
+    "Yearly" = "year",
+    "Monthly" = "month",
+    "Weekly" = "week",
+    "Daily" = "day"
+  ),
+  selected = "month"
+)
+
+purchase_lease <- checkboxGroupButtons(
+  "purchase_lease",
+  "Purchased/Leased:",
+  choices = c("Purchased" = "P",
+              "Leased" = "L"),
+  selected = c("P", "L")
+)
+
+new_used <- checkboxGroupButtons(
+  "new_used",
+  "New/Used:",
+  choices = c("New" = "NEW",
+              "Used" = "USED"),
+  selected = c("NEW", "USED")
+)
+
+metric <- selectInput(
+  "metric",
+  "Select Metric",
+  choices = c(
+    "Number of Sales" = "number_of_sales",
+    "Front Gross Profit" = "front_gross_profit",
+    "Back Gross Profit" = "back_gross_profit",
+    "Total Gross Profit" = "total_gross_profit",
+    "Cash Price" = "cash_price"
+  ),
+  selected = "number_of_sales"
+)
+
+new_used_movers <- checkboxGroupButtons(
+  "new_used_movers",
+  "New/Used:",
+  choices = c("New" = "NEW",
+              "Used" = "USED"),
+  selected = c("NEW", "USED")
+)
+
+n_movers <- sliderInput(
+  "n_movers",
+  "Show Number",
+  min = 2,
+  max = 20,
+  value = 10,
+  step = 1
+)
+
+ui <- page_navbar(
+  title = "LJ Leading Indicators",
+  fluid = TRUE,
+  nav_menu(
+    title = "Business",
+    value = "business",
+    icon = icon("building"),
     
-                  checkboxGroupInput("purchase_lease", "Purchased/Leased:",
-                              choices = c("Purchased" = "P", 
-                                          "Leased" = "L"),
-                              selected = c("P", "L"),
-                              inline = TRUE)
-                ),
-              
-                column(6,
-              
-                  checkboxGroupInput("new_used", "New/Used:",
-                                     choices = c("New" = "NEW", 
-                                                 "Used" = "USED"), 
-                                     selected = c("NEW", "USED"),
-                                     inline = TRUE)
-                )),
-            
-              fluidRow(
-                column(12,
-                       
-                  selectInput("metric", "Select Metric",
-                              choices = c("Number of Sales" = "number_of_sales",
-                                          "Front Gross Profit" = "front_gross_profit",
-                                          "Back Gross Profit" = "back_gross_profit",
-                                          "Total Gross Profit" = "total_gross_profit",
-                                          "Cash Price" = "cash_price"),
-                              selected = "number_of_sales")
-                )),
-              fluidRow(
-                column(12,
-                  
-                  actionBttn("run", "Run"))),
-              
-              br(),
-            
-              br(),
-
-              #plotOutput("plot")
-            # dateInput(
-            #   "last-6-months-date",
-            #   label = "Select Month",
-            #   value = NULL,
-            #   min = NULL,
-            #   max = NULL,
-            #   format = "yyyy-mm",
-            #   startview = "year",
-            #   weekstart = 0,
-            #   language = "en",
-            #   width = NULL,
-            #   autoclose = TRUE,
-            #   datesdisabled = NULL,
-            #   daysofweekdisabled = NULL
-            #), 
-              plotOutput("plot_history")
-            )
+    # History
+    nav_panel(
+      title = "History",
+      icon = icon("clock"),
+      layout_sidebar(
+        value = "history",
+        cards[["plot_history"]],
+        cards[['text']],
+        sidebar = sidebar(timeframe, resolution, purchase_lease, new_used, metric)
+      )
     ),
-
-    tabItem(tabName = "biggest-movers",
-            column(12,
-                   
-                   fluidRow(
-                     column(12,
-                       checkboxGroupInput("new_used_movers", "New/Used:",
-                                          choices = c("New" = "NEW", 
-                                                      "Used" = "USED"), 
-                                          selected = c("NEW", "USED"),
-                                          inline = TRUE),
-                       
-                      sliderInput("n_movers", "Show Number", 
-                                  min = 2,
-                                  max = 20,
-                                  value = 10, 
-                                  step = 1)
-                      )
-                    ) # auto update no run button
-                   ),
-            plotOutput("plot_movers")
+    
+    # Movers
+    nav_panel(
+      "Biggest Movers",
+      icon = icon("car"),
+      layout_sidebar(
+        value = "biggest-movers",
+        cards["plot_movers"],
+        sidebar = sidebar(new_used_movers, n_movers)
+      )
+    ),
+    
+    # Ranking
+    nav_panel(
+      "Ranking",
+      icon = icon("ranking-star"),
+      layout_sidebar(value = "ranking",
+                     ####,
+                     sidebar = "Ranking")
+    )
+  ),
+  
+  # personnel
+  nav_menu(
+    title = "Personnel",
+    value = "personnel",
+    align = "left",
+    icon = icon("user-friends"),
+    
+    # salesman
+    nav_panel("Top Salesman",
+              value = "top-salesman",
+              icon = icon("user-tie")),
+    
+    # finance
+    nav_panel(
+      "Top Finance Manager",
+      value = "top-fi-manager",
+      icon = icon("piggy-bank")
+    )
+  ),
+  
+  # prediction tab
+  nav_panel(
+    title = "Prediction",
+    value = "prediction",
+    icon = icon("cubes-stacked")
+  ),
+  
+  nav_spacer(),
+  
+  # support menu
+  nav_menu(
+    title = "Support",
+    align = "right",
+    icon = icon("circle-exclamation"),
+    
+    nav_item(
+      title = "Version",
+      value = "version",
+      tags$a("Last update:", repfor)
+    ),
+    
+    nav_item(
+      tags$a(icon("envelope"), "Maintenance Request", href = "https://forms.gle/mbG3dKhh5m1gZs176"),
     )
   )
-)
-
-
-# maintenance
-
-# Put them together into a dashboardPage
-
-shinydashboard::dashboardPage(
-  header,
-  sidebar,
-  body
 )
