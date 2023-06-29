@@ -8,6 +8,7 @@
 #
 
 library(shiny)
+
 # bslib instead of shiny dashboard
 library(bslib)
 
@@ -16,53 +17,10 @@ library(lubridate)
 
 library(shinyWidgets)
 
-KDAc <- read_csv("../data/sour/KDAc.csv", show_col_types = FALSE)
-# generated on
-today <- Sys.Date()
-
-# last month
-lmonth <- floor_date(floor_date(today, unit = "month") - 1, unit = "month")
-
-# bounds of 2nd to last month on record
-nmonth <- floor_date(floor_date(max(KDAc$date), unit = "month") - 1, unit = "month")
-nomonth <- ceiling_date(nmonth, unit = "month") - 1
-
-# bounds of last month on record
-pmonth <- nomonth + 1
-pqmonth <- ceiling_date(pmonth, unit = "month") - 1
-
-# report would be made on the 1st of
-repon <- pqmonth + 1
-
-# report is for the month of
-repfor <- paste0(month(pqmonth, label = TRUE, abbr = FALSE), ", ", year(pqmonth))
-
+source("appData.R")
 ## ui.R ##
 
-cards <- list(
-  "text" = card(
-    card_header("Text"),
-    textOutput("text")
-    ),
-  
-  "plot_history" = card(
-    full_screen = TRUE,
-    card_header("History"),
-    plotOutput("plot_history")
-  ),
-  
-  "plot_movers" = card(
-    full_screen = TRUE,
-    card_header("Biggest Movers"),
-    plotOutput("plot_movers")
-  )
-)
-cards[['text']]
 # inputs
-
-color_by <- varSelectInput("color_by", "Color by",
-                           penguins[c("species", "island", "sex")],
-                           selected = "species")
 
 timeframe <- selectInput(
   "timeframe",
@@ -127,10 +85,63 @@ new_used_movers <- checkboxGroupButtons(
 
 n_movers <- sliderInput(
   "n_movers",
-  "Show Number",
+  "Number of Movers",
   min = 2,
   max = 20,
   value = 10,
+  step = 1
+)
+
+n_months <- sliderInput(
+  "n_months",
+  "Number of Months",
+  min = 1,
+  max = month(pmonth),
+  value = 1,
+  step = 1
+)
+
+n_years <- sliderInput(
+  "n_years",
+  "Number of Years",
+  min = 1,
+  max = 10,
+  value = 3,
+  step = 1
+)
+
+metric2 <- selectInput(
+  "metric2",
+  "Select Metric",
+  choices = c(
+    "Number of Sales" = "number_of_sales",
+    "Front Gross Profit" = "front_gross_profit",
+    "Back Gross Profit" = "back_gross_profit",
+    "Total Gross Profit" = "total_gross_profit",
+    "Cash Price" = "cash_price"
+  ),
+  selected = "number_of_sales"
+)
+
+metric3 <- selectInput(
+  "metric3",
+  "Select Metric",
+  choices = c(
+    "Number of Sales" = "number_of_sales",
+    "Front Gross Profit" = "front_gross_profit",
+    "Back Gross Profit" = "back_gross_profit",
+    "Total Gross Profit" = "total_gross_profit",
+    "Cash Price" = "cash_price"
+  ),
+  selected = "number_of_sales"
+)
+
+n_performers <- sliderInput(
+  "n_performers",
+  "Number of People",
+  min = 2,
+  max = 10,
+  value = 5,
   step = 1
 )
 
@@ -146,13 +157,25 @@ ui <- page_navbar(
     nav_panel(
       title = "History",
       icon = icon("clock"),
-      layout_sidebar(
-        value = "history",
-        cards[["plot_history"]],
-        cards[['text']],
-        sidebar = sidebar(timeframe, resolution, purchase_lease, new_used, metric)
-      )
-    ),
+      card(
+          layout_sidebar(
+          value = "history",
+          full_screen = TRUE,
+          card_header("History"),
+          plotOutput("plot_history"),
+        sidebar = sidebar(metric, timeframe, resolution, purchase_lease, new_used)
+        )
+        ),
+      
+      card(
+        layout_sidebar(
+          value = "last_year",
+          full_screen = TRUE,
+          card_header = paste0("Last Year"),
+          plotOutput("plot_last_year"),
+        sidebar = sidebar(metric2, n_months, n_years))
+        )
+      ),
     
     # Movers
     nav_panel(
@@ -160,7 +183,11 @@ ui <- page_navbar(
       icon = icon("car"),
       layout_sidebar(
         value = "biggest-movers",
-        cards["plot_movers"],
+        card(
+          full_screen = TRUE,
+          card_header(paste0("Biggest Movers for ", repfor)),
+          plotOutput("plot_movers")
+        ),
         sidebar = sidebar(new_used_movers, n_movers)
       )
     ),
@@ -169,9 +196,10 @@ ui <- page_navbar(
     nav_panel(
       "Ranking",
       icon = icon("ranking-star"),
-      layout_sidebar(value = "ranking",
-                     ####,
-                     sidebar = "Ranking")
+      card(full_screen = TRUE,
+           card_header(paste0("Ranking ", repfor)),
+           plotOutput("plot_rank")
+      )
     )
   ),
   
@@ -179,19 +207,22 @@ ui <- page_navbar(
   nav_menu(
     title = "Personnel",
     value = "personnel",
-    align = "left",
     icon = icon("user-friends"),
     
     # salesman
-    nav_panel("Top Salesman",
-              value = "top-salesman",
-              icon = icon("user-tie")),
-    
-    # finance
     nav_panel(
-      "Top Finance Manager",
-      value = "top-fi-manager",
-      icon = icon("piggy-bank")
+      "Top Performers",
+      icon = icon("user-tie"),
+      layout_sidebar(
+        value = "top-performers",
+        card(full_screen = TRUE,
+             card_header("Top Salesmen"),
+             plotOutput("plot_top_salesmen")),
+        card(full_screen = TRUE,
+             card_header("Top Finance Manager"),
+             plotOutput("plot_top_fi")),
+        sidebar = sidebar(metric3, n_performers)
+    )
     )
   ),
   
@@ -217,7 +248,7 @@ ui <- page_navbar(
     ),
     
     nav_item(
-      tags$a(icon("envelope"), "Maintenance Request", href = "https://forms.gle/mbG3dKhh5m1gZs176"),
+      tags$a(icon("envelope"), "Maintenance Request", href = "https://forms.gle/mbG3dKhh5m1gZs176")
     )
   )
 )

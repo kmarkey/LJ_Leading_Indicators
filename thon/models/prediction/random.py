@@ -12,13 +12,11 @@ import random
 from thon.churn_functions import modernize, bake, simple_split
 
 
-def random_forest(split,
+def random_forest(data,
+                  split,
                   feature_selection = None,
-                  data_dir:str = "data/out/features.csv",
                   targetvar:str = 'n'):
-    
-    data = pd.read_csv(data_dir)
-    
+        
     if feature_selection is not None:
         X, y = data[list(feature_selection)], data[targetvar]
     else:
@@ -35,7 +33,7 @@ def random_forest(split,
                                         max_depth = 3)) # was cv
     ])
     
-    pipeline.fit(X_train, y_train)
+        pipeline.fit(X_train, y_train)
     
     pred_train = pd.Series(pipeline.predict(X_train), index=X_train.index)
     pred_test = pd.Series(pipeline.predict(X_test), index=X_test.index)

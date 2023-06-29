@@ -403,15 +403,19 @@ movers %>%
 
 ```{r Last 6 Months Sales}
 # n.months must be less than as.numeric(month(pmonth, abbr = FALSE, label = FALSE))
-n.months <- 10
-  
+n.months <- 3
+
+years <- 7
+
 metric <- "n"
 
-metric_dict <- c(n = "Total Sales", 
-                 front_gross_profit = "Avg. Front Gross Profit", 
-                 back_gross_profit = "Avg. Back Gross Profit",
-                 total_gross_profit = "Avg. Total Gross Profit",
-                 cash_price = "Avg. Cash Price")
+metric_dict <- c(
+  n = "Total Sales",
+  front_gross_profit = "Avg. Front Gross Profit",
+  back_gross_profit = "Avg. Back Gross Profit",
+  total_gross_profit = "Avg. Total Gross Profit",
+  cash_price = "Avg. Cash Price"
+)
 
 mlabs <- function(x) {
   paste0(month(
@@ -421,6 +425,9 @@ mlabs <- function(x) {
   ))
 }
 
+month(pmonth)
+
+# group by distance from current month
 mgroups <- KDAc %>%
   
   dplyr::mutate(mgroup = factor(month(pmonth) - month(date), ordered = TRUE),
@@ -428,59 +435,57 @@ mgroups <- KDAc %>%
   
   group_by(mgroup, theyear) %>%
   
-  {if (metric == "n")
-    summarise(., y = n(), mgroup, theyear)
+  {
+    if (metric == "n")
+      summarise(., y = n(), mgroup, theyear)
     else
-      summarise(., y = mean(get(metric), na.rm = TRUE), mgroup, theyear)} %>%
-
+      summarise(., y = mean(get(metric), na.rm = TRUE), mgroup, theyear)
+  } %>%
+  
   distinct() %>%
   
-  dplyr::filter(theyear >= year(pmonth) - 1, mgroup <= n.months - 1 &&
-                mgroup >= 0)
+  dplyr::filter(theyear >= year(pmonth) - years + 1,
+                as.numeric(as.character(mgroup)) >= 0 && as.numeric(as.character(mgroup)) <= n.months - 1)
+
+mgroups
 
 ggplot() +
-  geom_bar(
-    data = mgroups %>% dplyr::filter(theyear == year(pmonth)),
-    aes(x = mgroup, y = y),
-    width = 0.7,
-    stat = "identity",
-    fill = lightblue,
-    alpha = 0.8
+  geom_col(
+    data = mgroups,
+    aes(
+      x = rev(mgroup),
+      y = y,
+      group = theyear,
+      fill = theyear
+    ),
+    width = 0.8,
+    position = 'dodge',
   ) +
   
-  geom_line(
-    data = mgroups %>% dplyr::filter(theyear == year(pmonth) - 1),
-    aes(x = mgroup, y = y, group = theyear),
-    lwd = 1.5,
-    lty = 9,
-    alpha = 0.6
+  geom_text(
+    data = mgroups,
+    aes(
+      x = rev(mgroup),
+      y = 0,
+      group = theyear,
+      label = theyear, 
+      color = y < 5 
+    ),
+    position = position_dodge(width = 0.8),
+    angle = 90,
+    hjust = -0.1
   ) +
-  
-  geom_label(
-    data = mgroups %>% dplyr::filter(theyear == year(pmonth) - 1, mgroup == n.months - 1),
-    aes(x = mgroup, y = y - 10, label = "Last Year"),
-    fill = "black",
-    color = "white"
-  ) +
-  
-  {if (metric == "n") 
-      geom_label(data = mgroups %>% dplyr::filter(theyear == year(pmonth)),
-             aes(x = mgroup, y = y, label = comma(round(y))))
-    else
-      geom_label(data = mgroups %>% dplyr::filter(theyear == year(pmonth)),
-                 aes(x = mgroup, y = y, label = paste0("$", comma(round(y)))))
-    } +
-  
+
   scale_x_discrete(labels = mlabs, limits = rev) +
   
   scale_y_continuous(labels = comma) +
   
-  labs(
-    title = paste0(metric_dict[metric], " in the Last ", n.months, " Months"),
-    subtitle = paste0("From ", repfor),
-    y = '',
-    x = ''
-  )
+  scale_color_manual(values = c("white", "black")) +
+  
+  labs(y = '',
+       x = '') +
+  theme(legend.position = 'none')
+
 ```
 
 Compare this month to other years
@@ -527,7 +532,7 @@ ggplot(calmonth) +
 ```{r, label="People"}
 # best salesman by avg cash price? avg fgp? n sales? for this month
 
-salesman_metric <- "n" # button!
+salesman_metric <- "number_of_sales" # button!
 
 salesman.n <- 5
 
@@ -618,6 +623,70 @@ fipeople %>%
   ) +
   scale_y_continuous(expand = expansion(mult = c(-0.5, 0.05)),
                      labels = comma) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+```
+
+```{r}
+data <- KDAc %>%
+
+  dplyr::filter(date >= pmonth, date <= pqmonth) %>%
+  
+  group_by(salesman) %>%
+  
+  # metric
+  {
+    if (salesman_metric == "number_of_sales")
+      
+      dplyr::summarise(., metric = n())
+    
+    else
+      
+      dplyr::summarise(., metric = mean(get(salesman_metric), na.rm = TRUE))
+  } %>%
+  
+  distinct() %>%
+  
+  slice_max(n = salesman.n,
+            order_by = metric)
+
+
+data
+# plotting
+data %>%
+  ggplot() + geom_bar(aes(x = reorder(salesman, metric),
+                          y = metric),
+                      stat = "identity") +
+  
+  {
+    if (salesman_metric == "number_of_sales")
+      geom_label(aes(
+        x = salesman,
+        y = metric,
+        label = paste0(salesman, "\n", round(metric, digits = 0))
+      ),
+      size = 3)
+    
+    else
+      geom_label(
+        aes(
+        x = salesman,
+        y = metric,
+        label = paste0(salesman, "\n$", scales::comma(round(metric, digits = 0)))
+      ),
+      size = 3)
+  } +
+  # geom_label(aes(x = salesman,
+  #                y = get(salesman_metric),
+  #                label = paste0(salesman, "\n", scales::comma(round(get(salesman_metric), digits = 0)))),
+  #            size = 3) +
+  
+  labs(y = "",
+       x = "") +
+  
+  scale_y_continuous(expand = expansion(mult = c(-0.3, 0.1)),
+                     breaks = integer_breaks()) +
+  
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank())
 ```

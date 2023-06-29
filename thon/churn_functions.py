@@ -17,6 +17,8 @@ import random
 
 def simple_split(X, y, n):
     
+    """Splits data into training and test by 1, 2, or 4 values inside a tuple"""
+    
     if type(n) is tuple and len(n) == 2:
         a1, a2, b1, b2 = 0, n[0], n[1], len(X.index)
     elif type(n) is tuple and len(n) == 4:
@@ -70,9 +72,9 @@ def save_model(mod, filename):
         pickle.dump(mod, file)
     
 # quick and dirty plotting and metric
-def out_eval(data, metric, verbose = 0):
+def out_eval(data, criterion, verbose = 0):
     """
-    Comptutes metric on data. Verbositycan be an integer from 0-2 with 0 as no output, 1 as printed output, and 2 including plots
+    Comptutes (criterion) on (data). Verbosity can be an integer from 0-2 with 0 as no output, 1 as printed output, and 2 including plots
     """
     
     # split data
@@ -80,8 +82,8 @@ def out_eval(data, metric, verbose = 0):
     test = data[data['group'] == 'test']
     pred = data[data['group'] == 'pred']
     
-    train_metric = metric(train['actual'], train['pred'])
-    test_metric = metric(test['actual'], test['pred'])
+    train_stat = criterion(train['actual'], train['pred'])
+    test_stat = criterion(test['actual'], test['pred'])
     
     if verbose > 1:
         plt.plot(train['actual'], 'g')
@@ -89,9 +91,8 @@ def out_eval(data, metric, verbose = 0):
         plt.plot(test['actual'], 'b')
         plt.plot(test['pred'], 'b--')
         plt.plot(pred['pred'], 'r')
-        
-    if verbose > 0:
-        return (train_metric, test_metric)
+
+    return train_stat, test_stat
     
 def bake(y_train, y_test, pred_train, pred_test, pred):
     

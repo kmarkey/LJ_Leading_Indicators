@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import os
-import pickle
 import re
 import warnings
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -11,20 +10,19 @@ from torch.autograd import Variable
 
 from thon.churn_functions import modernize, bake, simple_split
 
-def run_gru(split,
+def run_gru(
+    data,
+    split,
+             feature_selection = None,
+             targetvar:str = 'n',
              num_epochs = 100,
              learning_rate = 0.01,
-             hidden_size = 32,
-             n_layers = 1, 
-             feature_selection = None,
-             data_dir:str = "data/out/features.csv",
-             targetvar:str = 'n',
+             criterion = torch.nn.MSELoss(),
+             hidden_size = 32, 
              verbose = 0):
     
     torch.manual_seed(1933)
-    
-    data = pd.read_csv(data_dir)
-    
+        
     if feature_selection is not None:
         X, y = data[list(feature_selection)], data[[targetvar]]
         input_size = len(feature_selection)
@@ -68,7 +66,6 @@ def run_gru(split,
     
     gru = GRUNet(input_size, hidden_size, num_layers)    
     
-    criterion = torch.nn.MSELoss()    # mean-squared error for regression
     optimizer = torch.optim.Adam(gru.parameters(), lr=learning_rate) 
 
     # train loop
@@ -115,5 +112,5 @@ def run_gru(split,
 
     out = bake(y_train.squeeze(), y_test.squeeze(), train_pred.squeeze(), test_pred.squeeze(), y_pred.squeeze())
     
-    return out, gru
+    return out
     

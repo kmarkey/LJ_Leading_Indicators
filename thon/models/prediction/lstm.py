@@ -11,20 +11,19 @@ from torch.autograd import Variable
 
 from thon.churn_functions import modernize, bake, simple_split
 
-def run_lstm(split,
+def run_lstm(
+    data,
+    split,
+             feature_selection = None,
+             targetvar:str = 'n',
              num_epochs = 100,
              learning_rate = 0.01,
+             criterion = torch.nn.MSELoss(),
              hidden_size = 32,
-             n_layers = 1, 
-             feature_selection = None,
-             data_dir:str = "data/out/features.csv",
-             targetvar:str = 'n',
              verbose = 0):
     
     torch.manual_seed(1933)
-    
-    data = pd.read_csv(data_dir)
-    
+        
     if feature_selection is not None:
         X, y = data[list(feature_selection)], data[[targetvar]]
         input_size = len(feature_selection)
@@ -76,8 +75,7 @@ def run_lstm(split,
     num_layers = n_layers #number of stacked lstm layers
     
     lstm1 = LSTM1(input_size, hidden_size, num_layers, X_train_tensors.shape[1]) #our lstm class 
-    
-    criterion = torch.nn.MSELoss()    # mean-squared error for regression
+
     optimizer = torch.optim.Adam(lstm1.parameters(), lr=learning_rate) 
 
     # train loop
@@ -124,5 +122,5 @@ def run_lstm(split,
 
     out = bake(y_train.squeeze(), y_test.squeeze(), train_pred.squeeze(), test_pred.squeeze(), y_pred.squeeze())
     
-    return out, lstm1
+    return out
     

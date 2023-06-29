@@ -14,7 +14,6 @@ from pytrends.exceptions import ResponseError
 from pytrends.request import TrendReq # google trends
 from bs4 import BeautifulSoup
 
-
 class manager:
     
     def __init__(self, data_class, keyname, search_lower = None, search_upper = None, keypath = "./keys/keys.txt", boundpath = "./keys/bounds.csv"):
@@ -229,7 +228,7 @@ class stocks(manager):
         
         for s in stocklist:
           
-            url = "https://finance.yahoo.com/quote/{}".format(s)
+            url = "https://www.nasdaq.com/market-activity/stocks/{}".format(s)
                     
             response = requests.get(url, timeout = 10)
             
@@ -243,7 +242,7 @@ class stocks(manager):
                 
             try:
                 
-                name = soup.find('h1', {"class": "D(ib) Fz(18px)"}).text.strip()
+                name = soup.find('span', {"class": "D(ib) Fz(18px)"}).text.strip()
             
             except:
                 

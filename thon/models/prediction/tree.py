@@ -3,7 +3,7 @@ import re
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from sklearn import tree
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error
@@ -12,12 +12,10 @@ from thon.churn_functions import modernize, simple_split, bake
 import warnings
 
 # do cv and fit with cost-complexity pruning
-def decision_tree(split,
-                  scoring,
-                  data_dir:str = "data/out/features.csv",
-                  targetvar:str = 'n',
-                  depth_range = np.arange(2, 8, 1),
-                  verbose = 0):
+def decision_tree(data,
+                  split,
+                  feature_selection = None,
+                  targetvar:str = 'n'):
     
     np.random.seed(1933)
     
@@ -25,47 +23,31 @@ def decision_tree(split,
     Creates a decision tree with optimized cost-complexity pruning for file in data_dir.
     Saves and returns complete df
     """
-    data = pd.read_csv(data_dir)
 
-    # Training data
-    X, y = data.drop(columns = targetvar), data[targetvar]
+    if feature_selection is not None:
+        X, y = data[list(feature_selection)], data[targetvar]
+    else:
+        X, y = data.drop(columns = targetvar), data[targetvar]
+        
     X_train, X_test, y_train, y_test = simple_split(X, y, split)
     
     # cv
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
-        ('model', tree.DecisionTreeRegressor())
+        ('model', DecisionTreeRegressor(max_depth = len(X_train.columns)))
         ])
     
-    search = GridSearchCV(pipeline,
-                      {'model__max_depth':depth_range},                      
-                      cv = 5,
-                      scoring = scoring,
-                      verbose = verbose)
+    pipeline.fit(X_train, y_train)
     
-    search.fit(X_train, y_train)
+    pred_train = pd.Series(pipeline.predict(X_train), index=X_train.index)
+    pred_test = pd.Series(pipeline.predict(X_test), index=X_test.index)
     
-    if verbose > 0:
-        print(search.best_params_)
+    pred = pipeline.predict(modernize(X_train))
     
-    # train
-    pipeline = Pipeline([
-        ('scaler', StandardScaler()),
-        ('model', tree.DecisionTreeRegressor(max_depth=search.best_params_['model__max_depth']))    
-        ])
-    
-    model = pipeline.fit(X_train, y_train)
-    
-    pred_train = pd.Series(model.predict(X_train), index=X_train.index)
-    pred_test = pd.Series(model.predict(X_test), index=X_test.index)
-
-    #  prediction
-    pred = model.predict(modernize(X_train))
+    out = bake(y_train, y_test, pred_train, pred_test, pred)
     
     # save diagram
     #     tree.plot_tree(model[1])
     #     out_file = "thon/models/figs/tree.dot", feature_names = list(X_train))
-    
-    out = bake(y_train, y_test, pred_train, pred_test, pred)
-    
+        
     return out

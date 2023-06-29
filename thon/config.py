@@ -18,18 +18,19 @@ def config_logger(logfile = "./logs/my_log_" + str(date.today()) + ".log", filel
     try:
         
         fh = logging.FileHandler(logfile)
-        fh.setFormatter(formatter)
         
-    except:
+    except FileNotFoundError:
         
         f = open(logfile, "w+")
         fh = logging.FileHandler(logfile)
-        fh.setFormatter(formatter)
-     
+        
+    # file handler 
+    fh.setFormatter(formatter)
+    
     # console handler
     ch = logging.StreamHandler()
     ch.setFormatter(formatter)
-
+    
     # add  handlers
     logger.handlers.clear()
     logger.addHandler(ch)
