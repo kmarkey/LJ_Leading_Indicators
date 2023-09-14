@@ -9,6 +9,7 @@
 
 # R files
 *.Rproj
+**/.Rproj/
 *.Rdata
 *.Rapp.history
 *.RDataTmp
