@@ -19,7 +19,8 @@ def linear_model(
                  feature_selection = None,
                  targetvar:str = 'n'):
     """
-    Runs linear regression with optional feature selection on file in data_dir
+    Runs linear regression with optional feature selection data
+    targetvar is 'n' by default
     """
     
     if feature_selection is not None:

@@ -1,8 +1,8 @@
 import subprocess
 import os
 import logging
-from thon.hooks import collect_data, collect_info
-from thon.config import config_logger, close_logger
+from scripts.hooks import collect_data, collect_info
+from scripts.config import config_logger, close_logger
 from datetime import date, time, datetime
 
 stocklist = ["GM", "F", "TSLA", "AN", "MZDAY", "XOM", "TM", "LEA", "BWA", "VC", "GT", "NIO", "HMC", "RACE"]

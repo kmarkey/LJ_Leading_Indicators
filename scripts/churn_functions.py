@@ -85,6 +85,8 @@ def out_eval(data, criterion, verbose = 0):
     train_stat = criterion(train['actual'], train['pred'])
     test_stat = criterion(test['actual'], test['pred'])
     
+    if verbose > 0:
+        print("Train:", train_stat, "\nTest:", test_stat)
     if verbose > 1:
         plt.plot(train['actual'], 'g')
         plt.plot(train['pred'], 'g--')

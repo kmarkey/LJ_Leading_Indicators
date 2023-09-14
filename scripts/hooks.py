@@ -4,7 +4,7 @@ import requests
 import json
 import pandas as pd
 import re
-from thon.config import config_logger, close_logger
+from scripts.config import config_logger, close_logger
 from datetime import datetime as dt
 import time
 from alpha_vantage.timeseries import TimeSeries # AV
@@ -92,6 +92,7 @@ class manager:
     
     @property
     
+    # test to see if saved file can be reused
     def recyclable(self):
         
         if (dt.strptime(self.search_lower, "%Y-%m-%d").month >= dt.strptime(self.exist["date"].min(), "%Y-%m-%d").month and
@@ -104,7 +105,7 @@ class manager:
             
         else:
             
-            return False # test
+            return False
             
     def save_data(self, out):
         
@@ -131,18 +132,20 @@ class manager:
 
 class stocks(manager):  
     
-    def __init__(self, search_lower = None, search_upper = None, data_class = "stocks", keyname = "alphavantage_key"):
+    #  set defaults for stocks
+    def __init__(self, search_lower = None, search_upper = None, keyname = "alphavantage_key", data_class = "stocks"):
         
         super().__init__(search_lower = search_lower, search_upper = search_upper, keyname = keyname, data_class = data_class)
         
     def get_csv(self, stocklist, save = True):
       
-        self.food = stocklist
+        self.food = stocklist # gets fed into get_csv
         
         if self.recyclable == True and save == False:
             
             self.log.info("{name}.csv, size:{dim}, will be reused!".format(name = self.data_class, dim = self.exist.shape))
             
+            # new self.data
             self.data = self.exist
             
             return self.data
@@ -228,7 +231,7 @@ class stocks(manager):
         
         for s in stocklist:
           
-            url = "https://www.nasdaq.com/market-activity/stocks/{}".format(s)
+            url = "https://finance.yahoo.com/quote/{}/profile".format(s)
                     
             response = requests.get(url, timeout = 10)
             
@@ -242,7 +245,7 @@ class stocks(manager):
                 
             try:
                 
-                name = soup.find('span', {"class": "D(ib) Fz(18px)"}).text.strip()
+                name = soup.find('h1', {"class": "D(ib) Fz(18px)"}).text.strip()
             
             except:
                 
@@ -256,9 +259,9 @@ class stocks(manager):
             
             try:
                 
-                category = "".join([soup.find(text = "Sector(s)").findNext('span').text, 
+                category = "".join([soup.find(string = "Sector(s)").findNext('span').text, 
                                    ", ",
-                                   soup.find(text = "Industry").findNext('span').text])
+                                   soup.find(string = "Industry").findNext('span').text])
                 
             except:
                 
@@ -291,7 +294,7 @@ class stocks(manager):
         self.get_info(stocklist = stocklist, save = save)
         
         return
-
+      
 
 class fred(manager):
     
@@ -356,10 +359,14 @@ class fred(manager):
         
         tdict = {}
         
+        self.log.info("Getting Fred info")
+        
         for k, v in fredpairs.items():
             
             url = "https://fred.stlouisfed.org/series/{}".format(v)
         
+            self.log.info("In fredpairs loop for{}".format(k))
+            
             response = requests.get(url, timeout = 5)
         
             try:

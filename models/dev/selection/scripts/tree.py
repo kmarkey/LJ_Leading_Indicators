@@ -7,12 +7,12 @@ from sklearn import tree
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import GridSearchCV
-from thon.churn_functions import modernize, simple_split, bake
+from sklearn.model_selection import GridSearchCV, KFold
+from scripts.churn_functions import modernize, simple_split, bake
 import warnings
 
 # do cv and fit with cost-complexity pruning
-def trim_tree(split,
+def tree_features(split,
                   scoring,
                   data_dir:str = "data/out/features.csv",
                   targetvar:str = 'n',
@@ -23,8 +23,8 @@ def trim_tree(split,
     
     """
     Performs decision tree regression on 5-fold CV for file in data_dir.
-    CV on max_depth
-    Returns list of features by cost-complexity pruning.
+    CV by cost-complexity on max_depth.
+    Returns list of features.
     """
     data = pd.read_csv(data_dir)
 
@@ -33,6 +33,9 @@ def trim_tree(split,
     X_train, X_test, y_train, y_test = simple_split(X, y, split)
     
     # cv
+    
+    cv = KFold(n_splits=5, shuffle=True, random_state=1933)
+    
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
         ('model', tree.DecisionTreeRegressor())
@@ -40,7 +43,7 @@ def trim_tree(split,
     
     search = GridSearchCV(pipeline,
                       {'model__max_depth':depth_range},                      
-                      cv = 5,
+                      cv = cv,
                       scoring = scoring,
                       verbose = verbose)
     

@@ -9,15 +9,7 @@ library(logger)
 library(here)
 library(rlang)
 
-source("process-functions.R")
-
-here()
-
-# cargs <- commandArgs(trailingOnly = TRUE)
-# 
-# # parse command args and assign
-# 
-# parmesean(cargs)
+source("scripts/utilities.R")
 
 log_setup()
 
@@ -71,7 +63,7 @@ if (train_set == "pre-covid") {
   
 }
 
-# pick target var
+# wolf is target var plucked from KDA
 wolf <- dplyr::select(wolf, all_of(targetvar), date)
 
 log_info("Proceeding with {nrow(wolf)} values of {targetvar}")

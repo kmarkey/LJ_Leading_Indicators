@@ -6,13 +6,13 @@ import warnings
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.pipeline import Pipeline
 import random
-from thon.churn_functions import modernize, bake, simple_split
+from scripts.churn_functions import simple_split
 
 
-def random_perm(split,
+def rf_features(split,
                 scoring,
                 top_features,
                   data_dir:str = "data/out/features.csv",
@@ -20,9 +20,9 @@ def random_perm(split,
                   max_depth = np.arange(2, 6, 1),
                   verbose = 0):
     """
-    Performs random forest regression on 5-fold CV for file in data_dir.
-    CV on max_depth
-    Returns list of features by permutation importance.
+    Performs random forest regression on 5-fold CV on max_depth for file in data_dir.
+    Ranks by permutation feature importance.
+    Returns n top_features.
     """
     data = pd.read_csv(data_dir)
 
@@ -32,16 +32,18 @@ def random_perm(split,
     
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
-        ('model', RandomForestRegressor(random_state = 25,
+        ('model', RandomForestRegressor(random_state = 1933,
                                         bootstrap=False,
                                         max_features="sqrt",
                                         n_estimators=250)
         )
     ])
     
+    cv = KFold(n_splits=5, shuffle=True, random_state=1933)
+    
     search = GridSearchCV(pipeline, 
                           {'model__max_depth':max_depth},
-                           cv = 5,
+                           cv = cv,
                            scoring = scoring,
                            verbose = verbose)
                           

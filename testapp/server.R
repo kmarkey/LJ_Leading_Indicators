@@ -3,10 +3,11 @@
 
 library(tidyverse)
 library(scales)
+library(plotly)
 
 source("../aesthetics/theme-and-palette.R")
 
-theme_set(ljtheme())
+theme_set(webtheme())
 
 ## THEME
 source("appData.R")
@@ -30,15 +31,27 @@ server <- function(input, output) {
     )
   }
   
-  output$plot_history <- renderPlot({
+  output$plot_history <- renderPlotly({
+    
+    reso_string <- function(x, input_resolution) {
+      
+      # to raw date
+      
+      case_when(input_resolution == "year" ~ paste0(year(x)),
+                input_resolution == "month" ~ paste0(month(x, label = TRUE, abbr = FALSE), ", ", year(x)),
+                input_resolution == "week" ~ format(x, format = "%B %d, %Y"),
+                input_resolution == "day" ~ format(x, format = "%B %d, %Y")
+      )
+    }
+    
     data <- KDAc %>%
       
-      # timeframe
-      dplyr::filter(between(
-        date,
-        timeframe_f(input$timeframe)[1],
-        timeframe_f(input$timeframe)[2]
-      )) %>%
+      # time frame
+      # dplyr::filter(between(
+      #   date,
+      #   timeframe_f(input$timeframe)[1],
+      #   timeframe_f(input$timeframe)[2]
+      # )) %>%
       
       # purchased or leased
       {
@@ -65,45 +78,43 @@ server <- function(input, output) {
       
       #  resolution
       dplyr::group_by(.,
-                      !!input$resolution := floor_date(date, input$resolution)) %>%
+                      resolution = floor_date(date, input$resolution)) %>%
       
       # metric
       {
         if (input$metric == "number_of_sales")
           
-          dplyr::summarise(., number_of_sales = n(), date)
+          dplyr::summarise(., metric = n(), resolution)
         
         else
           
-          dplyr::summarise(.,!!input$metric := mean(get(input$metric), na.rm = TRUE), date)
+          dplyr::summarise(., metric = mean(get(!!input$metric), na.rm = TRUE), resolution)
+        
       }
+
+    p <- ggplot(data,
+                aes(
+                  x = resolution, 
+                  y = metric)) + 
+                  # text = paste0(reso_string(resolution, input$resolution), "\n", metric))) +
+      
+      geom_line(color = blue,
+                linewidth = 1.5) +
+      
+          scale_y_continuous(name = paste(str_to_title(
+            gsub("_", " ", input$metric))), 
+            labels = comma) +
+      
+          scale_x_date(date_breaks = "1 year", labels = ~format(., "%Y"), date_minor_breaks = "1 month", name = "") +
     
-    ggplot(data) +
-      
-      geom_line(aes(x = date, y = get(input$metric)),
-                color = blue,
-                linewidth = 2) +
-      
-      labs(x = str_to_title(input$resolution),
-           y = paste(str_to_title(
-             str_replace_all(input$metric, "_", " ")
-           ))) +
-      
-      {
-        if (input$metric != 'number_of_sales')
-          scale_y_continuous(labels = comma)
-      } +
-      
       # always show 0
-      expand_limits(y = 0) +
+      expand_limits(y = 0)
       
-      coord_cartesian(xlim = c(
-        timeframe_f(input$timeframe)[1],
-        timeframe_f(input$timeframe)[2]
-      ))
+    ggplotly(p, tooltip = "text")
   })
   
-  output$plot_last_year <- renderPlot({
+  output$plot_last_year <- renderPlotly({
+    
     mlabs <- function(x) {
       paste0(month(
         pmonth - months(as.numeric(x)),
@@ -135,14 +146,15 @@ server <- function(input, output) {
           as.numeric(as.character(mgroup)) <= input$n_months - 1
       )
     
-    ggplot() +
+    p <- ggplot() +
       geom_col(
         data = data,
         aes(
-          x = rev(mgroup),
+          x = mgroup,
           y = y,
           group = theyear,
-          fill = theyear
+          fill = theyear,
+          text = paste0(round(y, 0), "\n", theyear)
         ),
         width = 0.8,
         position = 'dodge',
@@ -159,7 +171,7 @@ server <- function(input, output) {
         ),
         position = position_dodge(width = 0.8),
         angle = 90,
-        hjust = -0.1
+        hjust = - 0.1
       ) +
       
       scale_x_discrete(labels = mlabs, limits = rev) +
@@ -174,10 +186,16 @@ server <- function(input, output) {
            ))) +
       
       theme(legend.position = 'none')
+    
+    ggplotly(p, tooltip = "text")
   })
   
-  output$plot_movers <- renderPlot({
-    # get data, always for current month
+  output$plot_movers <- renderPlotly({
+    
+    
+    start <- month_bounds(input$month_select)[1] - months(1)
+    end <- month_bounds(input$month_select)[2]# get data, always for selected month
+    
     data <- KDAc %>%
       
       {
@@ -186,11 +204,11 @@ server <- function(input, output) {
           
           dplyr::filter(.,
                         nu == input$new_used_movers,
-                        date >= nmonth,
-                        date <= pqmonth) # this and last month
+                        date >= start,
+                        date <= end) # this and last month
         
         else
-          dplyr::filter(., date >= nmonth, date <= pqmonth)
+          dplyr::filter(., date >= start, date <= end)
       } %>%
       
       {
@@ -203,7 +221,7 @@ server <- function(input, output) {
                         .keep = 'unused')
       } %>%
       
-      dplyr::group_by(carname, month = ifelse(month(date) == month(pqmonth), "current", "last")) %>% # change month names
+      dplyr::group_by(carname, month = ifelse(month(date) == month(end), "current", "last")) %>% # change month names
       
       dplyr::summarise(n = n()) %>%
       
@@ -225,7 +243,7 @@ server <- function(input, output) {
       )
     
     # plotting
-    data %>%
+    p <- data %>%
       
       ggplot() +
       
@@ -237,37 +255,37 @@ server <- function(input, output) {
           yend = current,
           color = change > 0
         ),
-        linewidth = 10,
-        lineend = "round"
+        linewidth = 10
       ) +
       
       geom_point(
-        aes(x = carname, y = current),
-        color = "black",
-        alpha = 0.2,
-        size  = 10
-      ) +
-      
-      
-      geom_segment(
-        aes(
-          x = reorder(carname, change),
-          y = current,
-          xend = carname,
-          yend = last
-        ),
-        color = "white",
-        linewidth = 1.1,
-        lineend = "round",
-        linejoin = "bevel"
+        aes(x = carname, y = last, color = change > 0, text = paste0(last)),
+        size  = 9.5
       ) +
       
       geom_point(
-        aes(x = carname, y = current, shape = change > 0),
-        color = "white",
-        fill = "white",
-        size  = 4
+        aes(x = carname, y = current, color = change > 0, text = paste0(current)),
+        size  = 9.5
       ) +
+      
+      # geom_segment(
+      #   aes(
+      #     x = reorder(carname, change),
+      #     y = current,
+      #     xend = carname,
+      #     yend = last
+      #   ),
+      #   color = "white",
+      #   linewidth = 1.1
+      # ) +
+      
+      # doesn't work
+      # geom_point(
+      #   aes(x = carname, y = current, shape = change > 0),
+      #   color = "white",
+      #   fill = "white",
+      #   size  = 4
+      # ) +
       
       theme(
         axis.text.x = element_text(
@@ -280,14 +298,18 @@ server <- function(input, output) {
       ) +
       
       scale_color_manual(values = c(red, green)) +
+      
       scale_shape_manual(values = c(25, 24)) +
+      
       scale_y_continuous(breaks = integer_breaks()) +
+      
       labs(x = "",
            y = "Change In Sales")
     
+    ggplotly(p, tooltop = "text")
   })
   
-  output$plot_rank <-  renderPlot({
+  output$plot_rank <-  renderPlotly({
     data <- KDAc %>%
       dplyr::filter(month(date) == month(pmonth), year(date) <= year(pmonth)) %>%
       group_by(theyear = year(date)) %>%
@@ -340,9 +362,12 @@ server <- function(input, output) {
   
   output$plot_top_salesmen <- renderPlot({
       
+    start <- month_bounds(input$month_select)[1]
+    end <- month_bounds(input$month_select)[2]# get data, always for selected month
+    
     data <- KDAc %>%
       
-      dplyr::filter(date >= pmonth, date <= pqmonth) %>%
+      dplyr::filter(date >= start, date <= end) %>%
       
       group_by(salesman) %>%
       
@@ -366,6 +391,8 @@ server <- function(input, output) {
     data %>%
       ggplot() + geom_bar(aes(x = reorder(salesman, metric),
                               y = metric),
+                          color = "transparent",
+                          fill = blue,
                           stat = "identity") +
       
       {
@@ -392,11 +419,13 @@ server <- function(input, output) {
       #            size = 3) +
       
       labs(y = "",
-           x = "") +
+           x = str_to_title(gsub("_", " ", input$metric3))) +
       
       scale_y_continuous(expand = expansion(mult = c(-0.3, 0.1)),
                          breaks = integer_breaks(),
                          labels = comma) +
+      
+      expand_limits(y = 0) +
       
       theme(axis.text.x = element_blank(),
             axis.ticks.x = element_blank())
@@ -404,9 +433,12 @@ server <- function(input, output) {
   
   output$plot_top_fi <- renderPlot({
     
+    start <- month_bounds(input$month_select)[1]
+    end <- month_bounds(input$month_select)[2]# get data, always for selected month
+    
     data <- KDAc %>%
       
-      dplyr::filter(date >= pmonth, date <= pqmonth) %>%
+      dplyr::filter(date >= start, date <= end, !is.na(fimanager)) %>%
       
       group_by(fimanager) %>%
       
@@ -430,6 +462,8 @@ server <- function(input, output) {
     data %>%
       ggplot() + geom_bar(aes(x = reorder(fimanager, metric),
                               y = metric),
+                          color = "transparent",
+                          fill = blue,
                           stat = "identity") +
       
       {
@@ -456,11 +490,13 @@ server <- function(input, output) {
       #            size = 3) +
       
       labs(y = "",
-           x = "") +
+           x = str_to_title(gsub("_", " ", input$metric3))) +
       
       scale_y_continuous(expand = expansion(mult = c(-0.3, 0.1)),
                          breaks = integer_breaks(),
                          labels = comma) +
+      
+      expand_limits(y = 0) +
       
       theme(axis.text.x = element_blank(),
             axis.ticks.x = element_blank())

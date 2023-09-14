@@ -3,7 +3,7 @@
 library(readxl)
 library(tidyverse)
 
-source("process-functions.R")
+if(!exists("utilities_loaded")) source("./scripts/utilities.R")
 
 log_setup()
 

@@ -90,6 +90,24 @@ ljtheme <- function() {
     )
 }
 
+library(elementalist) # devtools::install_github("teunbrand/elementalist")
+
+webtheme <- function(){
+  theme(
+    # legend.background = element_rect_round(radius = unit(0.2, "snpc")),
+    # legend.key = element_rect_round(radius = unit(0.4, "snpc")),
+    panel.background = element_blank(),
+    # strip.background = element_rect_round(radius = unit(0.1, "pt")),
+    plot.background  = element_blank(), 
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.grid.major.y = element_line(colour = "black"),
+    
+    
+    
+  )
+}
+
 # A function factory for getting integer y-axis values.
 integer_breaks <- function(n = 5, ...) {
   fxn <- function(x) {

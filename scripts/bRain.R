@@ -13,11 +13,11 @@ targetvar <-  "n" # variable of interest
 bloat <- FALSE # favor wide over long feature data
 
 
-source("transform.R")
+source("scripts/transform.R")
 
-source("fishing.R")
+source("scripts/fishing.R")
 
 # fetch data if necessary
-source_python("thon/fetch.py")
+source_python("scripts/fetch.py")
 
-source("collage.R")
+source("scripts/collage.R")

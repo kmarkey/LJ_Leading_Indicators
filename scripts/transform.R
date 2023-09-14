@@ -10,9 +10,9 @@ library(here)
 library(tidyr)
 library(readxl)
 
-source("process-functions.R")
-
 #============================== read cargs and log =============================
+
+if(!exists("utilities_loaded")) source("./scripts/utilities.R")
 
 log_setup()
 
@@ -25,9 +25,8 @@ log_info("Running transform.R")
 
 #================================= first pass ==================================
 # set dir
-here()
 
-source("bucket.R")
+source("./scripts/bucket.R")
 
 log_info("Opened KDAc with {nrow(KDAc)} rows and {ncol(KDAc)} columns")
 
@@ -103,4 +102,4 @@ log_trace("Saving monthly data")
 
 write_csv(month_all, "./data/out/month_all.csv")
 
-log_info("End transform.R")
+log_success("End transform.R")

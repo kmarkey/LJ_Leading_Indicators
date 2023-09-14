@@ -16,23 +16,32 @@ library(tidyverse)
 library(lubridate)
 
 library(shinyWidgets)
+library(plotly)
 
 source("appData.R")
 ## ui.R ##
 
 # inputs
 
-timeframe <- selectInput(
-  "timeframe",
-  "Select Timeframe:",
-  choices = c(
-    "All Time" = "all_time",
-    "Past 5 Years" = "past_5",
-    "Past Year" = "past_1",
-    "Past 6 Months" = "past_6"
-  ),
-  selected = "all_time"
+month_select <- selectInput(
+  "month_select",
+  label = NULL,
+  choices = month_choices,
+  selected = selected_month
 )
+
+
+# timeframe <- selectInput(
+#   "timeframe",
+#   "Select Timeframe:",
+#   choices = c(
+#     "All Time" = "all_time",
+#     "Past 5 Years" = "past_5",
+#     "Past Year" = "past_1",
+#     "Past 6 Months" = "past_6"
+#   ),
+#   selected = "all_time"
+# )
 
 resolution <- selectInput(
   "resolution",
@@ -157,25 +166,40 @@ ui <- page_navbar(
     nav_panel(
       title = "History",
       icon = icon("clock"),
-      card(
-          layout_sidebar(
-          value = "history",
-          full_screen = TRUE,
-          card_header("History"),
-          plotOutput("plot_history"),
-        sidebar = sidebar(metric, timeframe, resolution, purchase_lease, new_used)
-        )
-        ),
       
-      card(
-        layout_sidebar(
-          value = "last_year",
-          full_screen = TRUE,
-          card_header = paste0("Last Year"),
-          plotOutput("plot_last_year"),
-        sidebar = sidebar(metric2, n_months, n_years))
+      navset_card_tab(
+        full_screen = TRUE,
+        title = "History",
+        
+        nav_panel(
+          "Time Series",
+          card_title("Time Series"),
+          
+          card(
+            layout_sidebar(
+              value = "history",
+              full_screen = TRUE,
+              plotlyOutput("plot_history"),
+              sidebar = sidebar(metric, resolution, purchase_lease, new_used)
+            )
+          )
+        ),
+        
+        nav_panel(
+          "Month Order",
+          card_title("Month Order"),
+          
+          card(
+            layout_sidebar(
+              value = "last_year",
+              full_screen = TRUE,
+              plotlyOutput("plot_last_year"),
+              sidebar = sidebar(metric2, n_months, n_years)
+            )
+          )
         )
-      ),
+      )
+    ),
     
     # Movers
     nav_panel(
@@ -185,22 +209,20 @@ ui <- page_navbar(
         value = "biggest-movers",
         card(
           full_screen = TRUE,
-          card_header(paste0("Biggest Movers for ", repfor)),
-          plotOutput("plot_movers")
+          plotlyOutput("plot_movers")
         ),
         sidebar = sidebar(new_used_movers, n_movers)
       )
-    ),
+    )
     
     # Ranking
-    nav_panel(
-      "Ranking",
-      icon = icon("ranking-star"),
-      card(full_screen = TRUE,
-           card_header(paste0("Ranking ", repfor)),
-           plotOutput("plot_rank")
-      )
-    )
+    # nav_panel(
+    #   "Ranking",
+    #   icon = icon("ranking-star"),
+    #   card(full_screen = TRUE,
+    #        card_header(paste0("Ranking ", repfor)),
+    #        plotlyOutput("plot_rank"))
+    # )
   ),
   
   # personnel
@@ -215,23 +237,31 @@ ui <- page_navbar(
       icon = icon("user-tie"),
       layout_sidebar(
         value = "top-performers",
-        card(full_screen = TRUE,
-             card_header("Top Salesmen"),
-             plotOutput("plot_top_salesmen")),
-        card(full_screen = TRUE,
-             card_header("Top Finance Manager"),
-             plotOutput("plot_top_fi")),
+        card(
+          full_screen = TRUE,
+          card_header("Top Salesmen"),
+          plotOutput("plot_top_salesmen")
+        ),
+        card(
+          full_screen = TRUE,
+          card_header("Top Finance Manager"),
+          plotOutput("plot_top_fi")
+        ),
         sidebar = sidebar(metric3, n_performers)
-    )
+      )
     )
   ),
   
   # prediction tab
   nav_panel(
-    title = "Prediction",
-    value = "prediction",
+    title = "Machine Learning",
+    value = "machine_learning",
     icon = icon("cubes-stacked")
   ),
+  
+  nav_spacer(),
+  
+  nav_item(month_select),
   
   nav_spacer(),
   

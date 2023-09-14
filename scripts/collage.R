@@ -9,9 +9,9 @@ library(tibble)
 library(stringr)
 library(lubridate)
 
-source("process-functions.R")
+if(!exists("utilities_loaded")) source("./scripts/utilities.R")
 
-here()
+log_setup()
 
 # parse args
 # cargs <- commandArgs(trailingOnly = TRUE)
@@ -27,11 +27,7 @@ here()
 
 # ============================ make logfile ====================================
 
-log_setup()
-
 log_info("Running collage")
-
-# log_info("Preparing data for {param_list[monthfile]} to estimate {param_list[targetvar]} for the next {ahead} months")
 
 #================================ read in walls =================================
 
@@ -66,7 +62,7 @@ stocks <- temp %>%
 log_trace("Reading stock data")
 
 
-log_info("{
+log_trace("{
   round(
     nrow(exam(stocks)) / ncol(stocks), 2) * 100}% pass from stocks.csv"
          )
@@ -86,7 +82,7 @@ fred <- temp %>%
 log_trace("Reading in FRED data")
 
 
-log_info("{
+log_trace("{
   round(nrow(exam(fred)) / ncol(fred), 2) * 100}% pass from fred.csv"
 )
 
@@ -106,7 +102,7 @@ trends <- temp %>%
 log_trace("Reading Google Trends data")
 
 
-log_info("{
+log_trace("{
   round(nrow(exam(trends)) / ncol(trends), 2) * 100}% pass from trends.csv"
 )
 
@@ -118,8 +114,6 @@ supp <- blank_m %>%
               quarter = quarter(date),
               year = year(date))
 
-log_trace("Created supplemental data")
-
 # no support for ahead != 3
 
 supp_ext <- tibble(date = c(max(blank_m$date) + months(1),
@@ -130,7 +124,7 @@ supp_ext <- tibble(date = c(max(blank_m$date) + months(1),
                    year = year(date))
 
 
-log_info("Including all supplemental data")
+log_trace("Including all supplemental data")
 #=============================== website views + users =========================
 # downloaded right now
 
@@ -144,24 +138,27 @@ website <- website %>%
     
     trim_it("website") %>%
     
-    lag_it()
-
-log_info("Reading web data")
+    lag_it() %>%
+  
+    # if NA, to 0
+    replace(is.na(.), 0)
 
 # finished with web
 #================================= appointments? ===============================
 
-
+log_trace("Reading web data")
 
 
 #=============================== joins =========================================
 log_trace("Joining features by month")
 
-scaling <- function(x) { # normalization function, do later
+scaling <- function(x) { # normalization function, but scale in python
     
     return((x - min(x, na.rm = T))/(max(x,  na.rm = T) - min(x, na.rm = T)))
     
-    }
+}
+
+
 
 complete_dirty <- dplyr::select(wolf, date, !!targetvar) %>%
     
@@ -175,7 +172,7 @@ complete_dirty <- dplyr::select(wolf, date, !!targetvar) %>%
     left_join(trends, by = "date") %>%
     
     # webpage views
-    # left_join(website, by = "date") %>%
+    left_join(website, by = "date") %>%
     
     # seasonal data
     left_join(supp, by = "date") %>%
@@ -186,13 +183,11 @@ complete_dirty <- dplyr::select(wolf, date, !!targetvar) %>%
     
     dplyr::select(-date)
 
-log_info("complete complete")
-
-log_info("Compiled {(ncol(complete_dirty) - 4)/5} potential features")
+log_trace("Compiled {(ncol(complete_dirty) - 4)/5} potential features")
 
 if(sum(is.na(complete_dirty)) != 0) {
     
-    log_info("{sum(is.na(complete_dirty))} missing values in complete dirty data")
+    log_info("{sum(is.na(complete_dirty))} missing values in complete_dirty")
   
 }
 
@@ -202,7 +197,14 @@ log_trace("Doing correlations")
 
 complete_cor <- complete_dirty %>%
     
-    cor(use = "pairwise.complete.obs")
+    cor(use = "complete.obs")
+
+# save feature correlations
+cor_frame <- complete_cor %>%
+  as.data.frame() %>%
+  select(n) %>%
+  rownames_to_column("feature") %>%
+  filter(n < 1.0)
 
 # select one lag per source that is above ahead and corr cutoff
 
@@ -216,60 +218,55 @@ feature_dict <- as.data.frame(complete_cor) %>%
   
   # lag must be 3+ and keep seasonal vars
   dplyr::filter(
-    as.numeric(str_remove(name, ".*_lag")) >= ahead | !grepl(".*_lag", name)) %>%
+    as.numeric(stringr::str_remove(name, ".*_lag")) >= ahead | !grepl(".*_lag", name)) %>%
   
-  group_by(str_replace(name, "_lag.*", "")) %>% # group by source
+  dplyr::group_by(stringr::str_replace(name, "_lag.*", "")) %>% # group by source
   
-  slice_max(get(targetvar), n = 2) %>% # find features with highest cor to n
+  dplyr::slice_max(get(targetvar), n = 1) %>% # find features with highest cor to n
   
-  ungroup() %>%
+  dplyr::ungroup() %>%
   
   dplyr::pull(name) # name to vector
 
 log_info("Cooking down: Slicing at cor = {cor_max} and picking {length(feature_dict) - 4} best feature names, ahead {ahead} months")
-
-#============================== prevent flow backup ============================
+#============================== prevent backup =================================
 
 # any NA's at the end of the df?
 dam <- names(complete_dirty)[is.na(complete_dirty[nrow(complete_dirty),])]
 
 if (length(dam) > 0) {
     
-    log_warn("{dam} is blocking the pipe! It should be considered an invalid source.")
+    log_warn("{dam} hasn't been retrieved! Maybe the source hasn't been updated yet. Also, check hooks.py")
     
     }
 
 #================================ set bloating =================================
 
-# we  want as much longitudinal data as possible cause ts
+# We should prefer long to wide df
 
-# Prefer long to wide df
 
-if (bloat == FALSE) {
+# get total nas in each col
+blort <- colSums(sapply(complete_dirty, is.na))
+
+# keep bottom 50% with least nas
+blort_names <- names(blort[blort <= mean(blort)])
+
+features <- dplyr::select(complete_dirty, all_of(blort_names)) %>%
   
-    # get total nas in each col
-    blort <- colSums(sapply(complete_dirty, is.na))
-    
-    # keep bottom 50% with least nas
-    blort_names <- names(blort[blort <= mean(blort)])
-    
-    features <- dplyr::select(complete_dirty, all_of(blort_names)) %>%
-      
-        dplyr::select(!!targetvar, any_of(feature_dict), -any_of(dam)) %>%
-      
-      na.omit() # easy gojf
-      
-} else {
-        
-    features <- dplyr::select(complete_dirty, !!targetvar, all_of(feature_dict), -all_of(dam)) %>% # correlation
-        
-        na.omit()
-}
+    dplyr::select(!!targetvar, any_of(feature_dict), -any_of(dam)) %>%
+  
+  na.omit() # easy gojf
 
-log_info("Trimmed off {ncol(complete_dirty) - ncol(features)} columns and {nrow(complete_dirty) - nrow(features)} rows")
+
+
+
+
+
+log_trace("Trimmed off {ncol(complete_dirty) - ncol(features)} columns and {nrow(complete_dirty) - nrow(features)} rows")
 
 # write up supp for bin and month  (probably not used)
 
+write_csv(cor_frame, "./data/out/corr_frame.csv")
 write_csv(supp_ext, "./data/out/supp_ext.csv")
 #==================================== write out ================================
 
