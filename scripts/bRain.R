@@ -22,6 +22,3 @@ source("scripts/fishing.R")
 source_python("scripts/fetch.py")
 
 source("scripts/collage.R")
-
-
-complete
