@@ -1,25 +1,22 @@
-# ignore maps projects
-**/maps
 
-# Jupyter Notebook checkpoints
-**/.ipynb_checkpoints
 
-# python cache
-**/__pycache__/
 
 # R files
 *.Rproj
-**/.Rproj/
 *.Rdata
 *.Rapp.history
 *.RDataTmp
-
 *.Rhistory
 
+# Other file types
 *.log
 *.md
+*.joblib
 
 # folders
 **/keys
-**/data/sour
+**/data
+**/.Rproj
 **/.Rproj.user
+**/.ipynb_checkpoints
+**/__pycache__
