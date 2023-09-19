@@ -21,64 +21,114 @@ file_list <- paste0(bucket_path, list.files(bucket_path))
 
 # for each file name
 for (x in file_list) {
-
-  KDAt <- read_csv(whole_file_path, show_col_types = FALSE)
   
+  # # file to join with x
+  # KDAt <- read_csv(whole_file_path, show_col_types = FALSE)
+  # 
   # can csv?
   if (grepl("\\.csv$", x)) {
+    
     adata <- read_csv(x, show_col_types = FALSE)
     
+  # can xlsx?
   } else if (grepl("\\.xlsx$", x)) {
+    
     adata <- read_xlsx(
       x,
       na = c("", "-", "==", "==-", "	 -   ", " -   ", " ", "  "),
       skip = 1,
       trim_ws = TRUE,
-      col_names = TRUE
-    )
+      col_names = TRUE)
     
-  } else {
-    log_info("No eligible files in bucket")
+    dummy_row <- structure(list(SOLD = structure(NA_real_, tzone = "UTC", class = c("POSIXct", 
+                                                                                    "POSIXt")), `DEAL-NO` = NA_character_, `VEHICLE-STOCK-NO...` = NA_character_, 
+                                YEAR = NA_real_, MAKE = NA_character_, MODEL = NA_character_, 
+                                NU = NA_character_, COMMONSALEDEALER = "Front Gross Profit", 
+                                BACKGPESTIMATE.. = "Back Gross Profit", TOTALCOMMDEALER.. = "Total Gross Profit", 
+                                `CASH-PRICE` = NA_real_, PL = NA_character_, `SALE-TYPE` = NA_character_, 
+                                SALESMAN = NA_character_, SALESMANAGER = NA_character_, FIMANAGER = NA_character_), row.names = c(NA, 
+                                                                                                                                  -1L), class = c("tbl_df", "tbl", "data.frame"))
     
-    KDAc <- read_csv("./data/sour/KDAt.csv", show_col_types = FALSE) %>%
-      clean_kda()
+    # possibly skip 2 lines
+    if (sum(dummy_row == adata[1,], na.rm = TRUE) > 0) {
       
-    break
+      adata <- read_xlsx(
+        x,
+        na = c("", "-", "==", "==-", "	 -   ", " -   ", " ", "  "),
+        skip = 2,
+        trim_ws = TRUE,
+        col_names = TRUE,
+        col_types = c("date", "numeric", "text", "numeric", "text", "text", "text", "numeric", "numeric", "numeric", "numeric", "text", "text", "text", "text", "text"))
+      
+    }
+  } else {
+      
+      log_info("No eligible files in bucket, reading most recent file")
+      
+      # read in clean file
+    ###### change to most recent by default#########
+      maxfile_date <- max(as.Date(
+        str_extract(list.files("data/sour/", pattern = "^KDAc"), pattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}")
+      ), na.rm = TRUE)
+      
+      maxfile_path <- paste0("./data/sour/KDAc-", maxfile_date, ".csv")
+      
+      KDAc <- read_csv(maxfile_path, show_col_types = FALSE)
+          
+      break
   }
   
-  testit::assert("File doesn't have column names",!is.null(attr(adata, "names")))
+  # has names?
+  testit::assert("File doesn't have column names", !is.null(attr(adata, "names")))
   
-  if (all(colnames(KDAt) == colnames(adata))) {
+  # same number of names?
+  if (length(colnames(KDAc)) == length(colnames(adata))) {
     
-    KDAt <- clean_kda(KDAt)
-    
-    # append data
+    # apply clean KDA
     adata <- clean_kda(adata)
     
-    if (max(KDAt$date) < min(adata$date)) {
-      log_trace("Binding rows in bucket")
+    # check overlap
+    # if less than one day of difference
+    if ((max(KDAc$date) - min(adata$date)) < 1) {
       
-      KDAc <- bind_rows(KDAt, adata) %>%
-        dplyr::arrange(date)
       
     } else {
-      log_trace("Temporal overlap between new and old")
+      log_info("Temporal mismatch between old and new, favoring old data")
       
-      KDAc <- KDAt
+      adata <- adata %>%
+        dplyr::filter(date > max(KDAc$date))
+      # KDAc <- KDAt
     }
     
-    # write out
-    log_info("writing over KDAc")
+    KDAc_new <- bind_rows(KDAc, adata) %>%
+      dplyr::arrange(date)
     
-    write_csv(KDAc, paste0("./data/sour/KDAc-", Sys.Date(), ".csv"))
+    # write out
+    log_info("writing out new KDAc")
+    
+    write_csv(KDAc_new, paste0("./data/sour/KDAc-", Sys.Date(), ".csv"))
     
     # remove from bucket
     
-    log_trace("Removing old KDAt")
+    log_trace("Removing old KDAt and clearing bucket")
+    
+    # copy and remove bucket files
+    file.copy(from = x,
+              to = "./data/sour/")
     
     file.remove(x)
     
-    rm(KDAt, adata)
+    rm(adata)
+    
+    # set env as newest KDAc
+    KDAc <- KDAc_new
+  
+    # and save file
+    write_csv(KDAc, "./data/sour/KDAc.csv")
+    
+      } else {
+    
+    log_info("Inconsistent column names, can't update")
   }
   
 }
@@ -100,3 +150,10 @@ for (x in file_list) {
 #                       na = c("", "-", "==", "==-", "	 -   ", " -   ", " ", "  "),
 #                       trim_ws = TRUE, col_names = TRUE)
 #
+# 
+# pred_file_list <- list.files("./models/dev/prediction/snapshots/", pattern = "l-full.*.csv")
+# 
+# for (file in pred_file_list) {
+#   full_join()
+# }
+# pred_file_list

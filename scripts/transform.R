@@ -30,7 +30,6 @@ source("./scripts/bucket.R")
 
 log_info("Opened KDAc with {nrow(KDAc)} rows and {ncol(KDAc)} columns")
 
-
 #================================= date bounds =================================
 log_trace("Fencing in dates")
 

@@ -1,6 +1,7 @@
 import subprocess
 import os
 import logging
+import pandas as pd
 from scripts.hooks import collect_data, collect_info
 from scripts.config import config_logger, close_logger
 from datetime import date, time, datetime
@@ -60,7 +61,11 @@ fredpairs = {
 glist = ['new cars', 'used cars', 'cars for sale', 'car for sale near me', 'best new cars', 'how to buy a car', 'dealership near me', 'dealerships near me']
 #===============================================================================
 
-collect_data(stocklist, fredpairs, glist)
+# get bounds
+data = pd.read_csv("./data/sour/KDAc.csv")
+search_lower = str(datetime.strptime(data[['date']].min().iloc[0], "%Y-%m-%d") + pd.offsets.MonthBegin(-1))[:10]
+search_upper = str(datetime.strptime(data[['date']].max().iloc[0], "%Y-%m-%d") + pd.offsets.MonthEnd(-1))[:10]
 
-collect_info(stocklist, fredpairs, glist)
+collect_data(stocklist, fredpairs, glist, search_lower=search_lower, search_upper = search_upper)
 
+collect_info(stocklist, fredpairs, glist, search_lower=search_lower, search_upper = search_upper)

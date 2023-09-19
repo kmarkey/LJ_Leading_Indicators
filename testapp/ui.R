@@ -226,38 +226,40 @@ ui <- page_navbar(
   ),
   
   # personnel
-  nav_menu(
-    title = "Personnel",
-    value = "personnel",
-    icon = icon("user-friends"),
-    
-    # salesman
-    nav_panel(
-      "Top Performers",
-      icon = icon("user-tie"),
-      layout_sidebar(
-        value = "top-performers",
-        card(
-          full_screen = TRUE,
-          card_header("Top Salesmen"),
-          plotOutput("plot_top_salesmen")
-        ),
-        card(
-          full_screen = TRUE,
-          card_header("Top Finance Manager"),
-          plotOutput("plot_top_fi")
-        ),
-        sidebar = sidebar(metric3, n_performers)
-      )
-    )
+
+  # salesman
+  nav_panel(
+    "Personnel",
+    icon = icon("user-tie"),
+    layout_sidebar(
+      value = "personnel",
+      card(
+        full_screen = TRUE,
+        card_header("Top Salesmen"),
+        plotOutput("plot_top_salesmen")
+      ),
+      card(
+        full_screen = TRUE,
+        card_header("Top Finance Managers"),
+        plotOutput("plot_top_fi")
+      ),
+      sidebar = sidebar(metric3, n_performers)
+  )
   ),
   
   # prediction tab
   nav_panel(
-    title = "Machine Learning",
-    value = "machine_learning",
+    title = "Leading Indicators",
+    value = "leadingindicators",
+    icon = icon("bolt-lightning")
+  ),
+  
+  nav_panel(
+    title = "Prediction",
+    value = "prediction",
     icon = icon("cubes-stacked")
   ),
+  
   
   nav_spacer(),
   

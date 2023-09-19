@@ -172,16 +172,14 @@ complete_dirty <- dplyr::select(wolf, date, !!targetvar) %>%
     left_join(trends, by = "date") %>%
     
     # webpage views
-    left_join(website, by = "date") %>%
+    # left_join(website, by = "date") %>%
     
     # seasonal data
     left_join(supp, by = "date") %>%
     
     arrange(date) %>%
       
-    ungroup() %>%
-    
-    dplyr::select(-date)
+    ungroup()
 
 log_trace("Compiled {(ncol(complete_dirty) - 4)/5} potential features")
 
@@ -196,6 +194,8 @@ if(sum(is.na(complete_dirty)) != 0) {
 log_trace("Doing correlations")
 
 complete_cor <- complete_dirty %>%
+    
+    select(-date) %>%
     
     cor(use = "complete.obs")
 
@@ -243,7 +243,7 @@ if (length(dam) > 0) {
 #================================ set bloating =================================
 
 # We should prefer long to wide df
-
+damroots <- sub("_lag[0-9]{1-2}", "", dam)
 
 # get total nas in each col
 blort <- colSums(sapply(complete_dirty, is.na))
@@ -253,13 +253,9 @@ blort_names <- names(blort[blort <= mean(blort)])
 
 features <- dplyr::select(complete_dirty, all_of(blort_names)) %>%
   
-    dplyr::select(!!targetvar, any_of(feature_dict), -any_of(dam)) %>%
+    dplyr::select(!!targetvar, any_of(feature_dict), -starts_with(damroots)) %>% # remove ineligible features
   
-  na.omit() # easy gojf
-
-
-
-
+  na.omit() # easy go jf
 
 
 log_trace("Trimmed off {ncol(complete_dirty) - ncol(features)} columns and {nrow(complete_dirty) - nrow(features)} rows")
@@ -278,4 +274,4 @@ write_csv(features, "./data/out/features.csv")
 
 log_success("End collage.R")
 
-rm(stocks, fred, trends, complete_cor, complete_dirty)
+rm(stocks, fred, trends, complete_cor)

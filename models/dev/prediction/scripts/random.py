@@ -11,7 +11,6 @@ from sklearn.pipeline import Pipeline
 
 from scripts.churn_functions import modernize, bake, simple_split
 
-
 class random_forest():
     def __init__(self):
         pass

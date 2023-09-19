@@ -10,18 +10,6 @@ from torch.autograd import Variable
 from captum.attr import IntegratedGradients
 from scripts.churn_functions import modernize, bake, simple_split
 
-import numpy as np
-import pandas as pd
-import os
-import re
-import warnings
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
-import torch #pytorch
-import torch.nn as nn
-from torch.autograd import Variable 
-
-from scripts.churn_functions import modernize, bake, simple_split
-
 class gru():
     def __init__(self):
         pass

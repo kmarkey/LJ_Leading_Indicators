@@ -590,4 +590,3 @@ def collect_info(stocklist, fredpairs, glist, search_lower = None, search_upper 
     
     t = trends(search_lower = search_lower, search_upper=search_upper)
     t.get_info(glist, save = save)
-

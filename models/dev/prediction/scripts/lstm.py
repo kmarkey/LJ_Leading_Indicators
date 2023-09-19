@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import torch #pytorch
 import torch.nn as nn
 from torch.autograd import Variable 
-
+from captum.attr import IntegratedGradients
 from scripts.churn_functions import modernize, bake, simple_split
 
 class lstm():
