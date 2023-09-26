@@ -13,18 +13,6 @@ if(!exists("utilities_loaded")) source("./scripts/utilities.R")
 
 log_setup()
 
-# parse args
-# cargs <- commandArgs(trailingOnly = TRUE)
-# 
-# # cargs to env
-# parmesean(cargs)
-
-# cor_max <- 0.20 # set feature correlation cutoff
-# ahead <- 3 # set lead time in months (3)
-# train_set <- "all" # data subset being used
-# targetvar <- "n" # variable of interest
-# bloat <- FALSE # favor wide over long feature data
-
 # ============================ make logfile ====================================
 
 log_info("Running collage")
@@ -114,19 +102,19 @@ supp <- blank_m %>%
               quarter = quarter(date),
               year = year(date))
 
-# no support for ahead != 3
-
-supp_ext <- tibble(date = c(max(blank_m$date) + months(1),
-                            max(blank_m$date) + months(2),
-                            max(blank_m$date) + months(3)),
-                   month = month(date),
-                   quarter = quarter(date),
-                   year = year(date))
-
+# added support for ahead > 3
+supp_ext <- tibble(dum = rep(max(blank_m$date), ahead)) %>%
+  
+  dplyr::transmute(date = dum + months(row_number(dum)),
+                month = month(date),
+                quarter = quarter(date),
+                year = year(date))
 
 log_trace("Including all supplemental data")
 #=============================== website views + users =========================
-# downloaded right now
+                          # downloaded right now  #
+                          # changed to GA4        #
+                          # working on update     #
 
 website <- read_csv("./data/in/website.csv", skip = 5, show_col_types = FALSE)
 
@@ -143,9 +131,9 @@ website <- website %>%
     # if NA, to 0
     replace(is.na(.), 0)
 
-# finished with web
 #================================= appointments? ===============================
-
+                            # Get appt data  #
+                            # From old login #
 log_trace("Reading web data")
 
 
@@ -207,7 +195,6 @@ cor_frame <- complete_cor %>%
   filter(n < 1.0)
 
 # select one lag per source that is above ahead and corr cutoff
-
 feature_dict <- as.data.frame(complete_cor) %>%
   
   dplyr::select(!!targetvar) %>% # get correlation of all cols to n
@@ -240,25 +227,25 @@ if (length(dam) > 0) {
     
     }
 
-#================================ set bloating =================================
+#======================== Remove impossible features ===========================
 
-# We should prefer long to wide df
+# Source roots of dammed names
 damroots <- sub("_lag[0-9]{1-2}", "", dam)
 
 # get total nas in each col
 blort <- colSums(sapply(complete_dirty, is.na))
 
-# keep bottom 50% with least nas
+# get names with > 50% NAs
 blort_names <- names(blort[blort <= mean(blort)])
+
 
 features <- dplyr::select(complete_dirty, all_of(blort_names)) %>%
   
     dplyr::select(!!targetvar, any_of(feature_dict), -starts_with(damroots)) %>% # remove ineligible features
   
-  na.omit() # easy go jf
+  na.omit()
 
-
-log_trace("Trimmed off {ncol(complete_dirty) - ncol(features)} columns and {nrow(complete_dirty) - nrow(features)} rows")
+log_info("Trimmed off {ncol(complete_dirty) - ncol(features)} columns and {nrow(complete_dirty) - nrow(features)} rows")
 
 # write up supp for bin and month  (probably not used)
 

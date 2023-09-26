@@ -63,7 +63,7 @@ glist = ['new cars', 'used cars', 'cars for sale', 'car for sale near me', 'best
 
 # get bounds
 data = pd.read_csv("./data/sour/KDAc.csv")
-search_lower = str(datetime.strptime(data[['date']].min().iloc[0], "%Y-%m-%d") + pd.offsets.MonthBegin(-1))[:10]
+search_lower = str(datetime.strptime(data[['date']].min().iloc[0], "%Y-%m-%d") + pd.offsets.MonthBegin(-1) + pd.offsets.YearBegin(-1))[:10] 
 search_upper = str(datetime.strptime(data[['date']].max().iloc[0], "%Y-%m-%d") + pd.offsets.MonthEnd(-1))[:10]
 
 collect_data(stocklist, fredpairs, glist, search_lower=search_lower, search_upper = search_upper)

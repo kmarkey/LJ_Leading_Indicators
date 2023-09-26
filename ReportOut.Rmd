@@ -49,103 +49,207 @@ Raw sales data, cleaned and summarized by month. Potential indicators
 were grouped by data source and summarized by month. They are refreshed
 each month.
 
-## 2. Find Indicators
+## 2. Find Leading Indicators
 
-Potential candidates were identified by other similar projects, current
-market research, and suggestions from experts. They were selected from a
-pool of stocks, economic measures, Google Trends, and some internal
-appointment information. Finding leading indicators is also a necessary
+To find potential candidates, I consulted sources used by other similar projects, current
+market research, and suggestions. Leading indicators were selected from a
+pool of stocks closures, volumes, economic measures, Google Trends information, and some internal
+appointment and website data. Finding and extracting good predictors of business performance is also a necessary
 step to create accurate and reliable predictions.
 
+A "good" predictor of business performance can mean a few things, and does mean a few things in the scope of this project:
+  -   On one hand, a good predictor may mean any set of data that is highly correlated with business performance
+  -   On the contrary, a good predictor may just be a set of data that is important for a model to predict business performance.
+  
+In other words, the leading indicators in this project are identified by both-readable and more complex mathematical methods. Some are better interpreted by people, and some are better interpreted by one of the few algorithms used to predict business performance. Where applicable, each indicator is given a score based on their importance to a model and correlation to business performance which you can view in the app.
+
+Identifying leading indicators can be translated to a machine learning
+problem called *feature selection*. The feature selection processes used in this project sometimes combine simple statistics with machine learning methods.
+
 After compiling a list of potential candidates, candidates that met the
-following criteria were excluded:
+following criteria were excluded during the feature selection process:
 
 -   Updated less frequently than every month
 -   Not released before the 5th of the month
 -   Not available for the duration of available data (2010-present)
 
-Identifying leading indicators can be translated to a machine learning
-problem called *feature selection*. The feature selection processes used in this project sometimes combine conventional statistics and machine learning methods.
+Candidates were then modified for the appropriate prediction interval (originally six months). Each indicator and it's modified subsidiaries were grouped together, and the single feature with the highest correlation was passed on as a _feature_.
 
-Candidates were all passed through a low correlation filter of \>
-0.20, and only the two indicators with the highest correlation from each
-source were selected. After a candidate has passed these filters, it is conventionally called a _feature_.
-
-Then, as a final measure of identifying leading indicators, the following machine learning techniques were employed:
+During the prediction process the following machine learning techniques were employed to determine which indicators were important to each model:
 
 -   Lasso L1 Regularization
--   Impurity pruning
+-   Gini Impurity pruning
 -   Permutation Feature Importance
+-   Integrated Gradients
+
+These methods are further described in the next section in conjuction with their respective model.
 
 ## 3. Create Predictions
 
-After identifying candidates, each of the following models was paired
-with a feature selection technique and trained on the assembled data:
+After identifying candidates, each of the following models was used in combination with
+feature selection techniques so that, when interpreted in concert, they may give diverse yet probable insights into future business performance.
 
 a)  Linear Model
 b)  Decision Tree
 c)  Random Forest
-d)  LSTM
+d)  ARIMA
 e)  GRU
+f)  LSTM
 
 Each model utilizes different methods to establish a relationship
 between the candidates and business performance. Thus, they must be
-interpreted differently. Some guidelines for model interpretation and
-additional model considerations are described below.
+interpreted differently. Below is a detailed description fo each model, some guidelines for interpretation, and
+additional considerations.
 
-### Linear Model with L1 regularization
+### Linear Model
 
 The linear model establishes a linear relationship between each feature
 and the output. This is the most simple method and typically very
-effective. Feature selection was performed with 5-fold cross-validation
-through Lasso regression, optimized for mean-squared-error.
+effective. The model won't be great at recognizing yearly or quarterly recurring trends, but can be easily quantified mathematically and serves as a great basis of understanding and improvement.
 
-The leading indicators used in this model are best described as those with the strongest linear relationship to business performance.
+Feature selection was performed with repeated 5-fold cross-validation
+through Lasso regression (L1 regularization), optimized for mean-squared-error. The leading indicators used in the final version of this model are best described as those with the strongest linear relationship to the target variable. While this model doesn't capture more complex relationships, it discovers each leading indicator with a robust method that can be easily mapped back to the target with a linear function. Feature importance was calculated using the absolute value of the normalized coefficients.
 
 ### Decision Tree
 
-The decision tree is another simpler method of prediction. The current
-model is illustrated in a function below.
+A decision tree is another simple method of prediction that is slow-moving and resistant to outliers. By establishing some binary question for each of the inputs, this model combines the answers into a prediction. For example, if the GM stock closes below 34.00 USD, a decision tree model might predict an decrease of 10 in the target variable. This model works poorly for changes on a small scale, but longer-term trends may be able to be detected early.
 
 ###### PHOTO 
 
-5-fold cross-validation was used to select tree depth and the optimal number of features. The model is scored with mean-squared-error. Additionally, this model is more resistant to monthly changes and can be interpreted as a slow-moving estimation. The leading indicators used in this model can be interpreted as those with the greatest impact on minimizing the residual error of the model.
+Feature selection was performed by trimming the depth of the tree with 5-fold cross-validation to optimize mean-squared-error. Despite its simplicity, this model works well to predict future changes. It can also be understood easily and quantified mathematically. The leading indicators used in this model can be interpreted as those with the greatest impact on minimizing the residual error of the model. Only a few leading indicators are selected by this method, and their importances were calculated using the Gini importance.
 
 ### Random Forest
 
-A random forest is a collection of hundreds of randomly generated decision trees that sums up votes from each tree. This method is less sensitive to large changes due to the voting system. Each tree uses between 3 and 4 features randomly selected from a pool of all features.
+A random forest is a collection of hundreds of decision trees, each composed of different features, that each take votes on estimating the target variable. This method is even less sensitive to large changes due to the voting system. This method is extremely effective and uses the best estimates from the best predictors.
 
-### LSTM
+The architecture of the model was set using 5-fold cross-validation on maximum tree depth and the minimum  number of samples per leaf. Feature selection was performed by calculating the permutation importance of each feature on a validation set, and running the model again with only features that had higher than mean feature importance. Features important to this model can be described as those that most often contribute to creating effective decision trees. This model is more complex, and while it can be translated into a series of decision trees, its more challenging to quantify a direct relationship between each leading indicator and the target.
 
-A LSTM (Long-Short-Term-Memory) is a deep neural network that is well-suited to the problem of time-series prediction. This is the most complex model used in this project. Due to the small size of the data, the model is heavily throttled by hidden layer size and training duration.
+### ARIMA
 
-These can be described as leading indicators with the greatest impact on on minimizing the residual error of the model.
+An Auto-Regressive Integrated Moving Average is a classic model of time-series prediction. Instead of using leading indicators, this makes a prediction based on linear relationships to past observations of the target variable (autoregression) and a calculated moving average. The performance of this model depends greatly on seasonality. This model is a benchmark for the success of this project. If the other regression models cannot outperform it, then it may not be beneficial to consider leading indicators at all.
+
+All features in this model are progressively lagged vectors of the target variable, up to 12 months.
 
 ### GRU
 
-A GRU is the younger brother to the LSTM, with a little less complexity. The model uses the same hyperparameters as the LSTM.
+A Generalized Recurrent Unit (GRU) is a basic type of neural network designed to place weight on past observations. Instead of one-shot optimization, neural networks are "trained" incrementally on hundreds of copies of the data and over time, come to some understanding of the relationship between the leading indicators and the target.
+
+After its first training pass, this model selects the top 10-20 most important features and is trained again using only those. Feature importance is calculated with the [integrated gradients](https://www.tensorflow.org/tutorials/interpretability/integrated_gradients). Because of the nature of this model and the amount of available data, it was heavily throttled by limiting the amount of training data it sees and the total number of parameters. While they usually achieve great scores, these models are difficult to understand, and thus don't offer a simple 1-1 relationship between input and output. Integrated gradients can give an idea of how important each leading indicator may be to the model, but its difficult to determine exactly what that means.
+
+### LSTM
+
+A Long-Short-Term Memory is a deep neural network that is well-suited to the problem of time-series prediction. This is the most complex model used in this project. Being a bit larger than a GRU, this model was also throttled to reduce risks associated with using overpowered models. 
 
 # Results
 
+## Leading Indicators
 
+As discussed, its important to remember that leading indicators are identified by a few methods ranging in interpretability and usability. In general, leading indicators that are identified by simpler, interpretable methods like a correlation coefficient aren't necessarily as important in predicting business performance. The inverse is also true: leading indicators that are highly important to a model such as the LSTM may not be well-understood or useful to people outside of its importance to the model.
+
+Below is a table of all candidates and their importance with respect to each model.
+
+```{r}
+
+cf <- read_csv("data/out/corr_frame.csv", show_col_types = FALSE, col_names = c("name", "correlation"), skip = 1)
+
+l <- read_csv("models/dev/snapshots/2023-09-22/l-imp.csv",
+              col_names = c("idx", "lasso", "name"), 
+              show_col_types = FALSE)
+
+t <- read_csv("models/dev/snapshots/2023-09-22/t-imp.csv", 
+              col_names = c("idx", "decision tree", "name"),
+              show_col_types = FALSE)
+
+r <- read_csv("models/dev/snapshots/2023-09-22/r-imp.csv", 
+              col_names = c("idx", "random forest", "name"),
+              show_col_types = FALSE)
+
+g <- read_csv("models/dev/snapshots/2023-09-22/g-imp.csv", 
+              col_names = c("idx", "gru", "name"),
+              show_col_types = FALSE)
+
+m <- read_csv("models/dev/snapshots/2023-09-22/m-imp.csv", 
+              col_names = c("idx", "lstm", "name"),
+              show_col_types = FALSE)
+
+# join all
+coyote <- left_join(cf, l, by = "name") %>%
+  left_join(t, by = "name") %>%
+  left_join(r, by = "name") %>%
+  left_join(g, by = "name") %>%
+  left_join(m, by = "name") %>%
+  dplyr::select(-starts_with("idx")) %>%
+  
+  # split out name to root and lag
+  separate(col = name,
+           into = c("key", "lag"),
+           sep = "_lag") %>%
+  
+  mutate(lag = as.numeric(lag))
+
+
+# read in json  files
+library(rjson)
+
+stock_info <- fromJSON(file = "data/out/stocks_info.json")
+
+fred_info <- fromJSON(file = "data/out/fred_info.json")
+
+trend_info <- fromJSON(file = "data/out/trends_info.json")
+
+get_info <- function(data) {
+
+df <- data.frame()
+
+    for (i in names(data)){
+    
+        for (j in data[i]) {
+            r <- c(key = i, unlist(j))
+            }
+        df <- rbind(df, r)
+    }
+    
+    names(df) <- c("key", names(data[[1]]))
+    
+    return(df)
+}
+
+info_df <- rbind(get_info(stock_info),
+                 get_info(fred_info),
+                 get_info(trend_info)) %>%
+    dplyr::summarise(name, key, category, updated, `citation`, link)
+
+ # add in best lag and usage per model here
+
+complete_info <- left_join(coyote, info_df, by = "key")
+```
+
+
+## Prediction Models
 
 # Discussion
 
 One of the most important concerns when prediction and training machine
 learning models is called *overfitting*. This is a phenomenon that
 occurs when the model fits the training data very well, but performs
-poorly when asked to predict new data. In other words, the algorithms
-are able to establish relationships that exist in the data from the
-past, but can't be generalized to make accurate predictions about the
-future. Every kind of model is prone to overfitting, and the models in this project were especially at risk of creating this problem. One way to prevent overfitting is to usemore data. Adding more data to the model is the best way to increase
-generalization. The current models are trained on between 100 and 120
-monthly sales totals, which leaves much to be desired. 
+poorly when asked to predict new data. For example, the models
+are able to establish relationships that exist in data from the
+past, but don't generalize to make accurate predictions about the
+future. 
 
-I would be comfortable to deploy the prediction phase of this project when the test scores are, on average no more than 100% larger than the training scores.
+Every kind of model is prone to overfitting, and this project is especially at risk of encountering this problem for two reasons.
 
-_________ prediction power ______________
+The first reason is the shape of the data. We are working with information from around 165 months. More longitudinal data would improve both prediction power and the accuracy of the feature selection process. With hundreds of similar candidates to choose from, it's ideal to have a number of observations (months) that exceeds the total number of candidates. This would require more data: 
+  -   Pre-2010 from the shop
+  -   Pre-2010 from all external sources
+  that may not be accessible or useful for a variety of reasons
 
-Another way to reduce overfitting is by removing some features. This was done by selecting only the most important features (leading indicators) from over 300 candidates. With less features to choose from, models estimate important relationships instead of just calculating changes in the data.
+Fortunately, the general shape of the data (known as n << p where n is the number of months and p is the total number of candidates before selection) conveniently lets us accomplish both goals of the project by requiring a robust feature selection process that:
+  -   reduces colinearity (duplicate information)
+  -   decreases overfitting
+  -   and presents a nice way to quantify true leading indicators
+  
+The second reason is the types of models used in the project. As mentioned, a few of the models were heavily simplified to reduce the risk of overfitting. Typically, the more complex the data, the more complex the model. While complicated models can produce extremely accurate predictions on a training set, predictions can be really inaccurate on new data. It's important to balance scores between the training and test set, especially with the more complex models. Cross-validation is a common solution to this problem as well, and has been employed by most of the models.
 
 With so many candidates for leading indicators, more monthly data could dramatically affect the output of feature
 selection and model performance tests. Often methods like bootstrapping and sampling are used to increase the number of observations, but with time series data there is little that can be done without disrupting the sequential nature of observations. We could also considered other intervals, such as weekly or bi-weekly, but would likely introduce more variance and restrict candidate selection even further.
@@ -153,14 +257,17 @@ selection and model performance tests. Often methods like bootstrapping and samp
 Additionally, with all the data the models use, it is possible that there is more economic information, stock trades, or other metric that may prove useful. More features may still be necessary to improve prediction of business performance and reduce overfitting.
 In the future, including more monthly observations and more feature candidates is necessary for improving this project.
 
-## COVID-19
+## NOTE: COVID-19
 
-In April of 2020, the United States entered a lockdown. This is a problem for two reasons. First, only two sales in the month of April 2020, which is a big outlier. Normally, sales hover between 200 and 400 per month. Such a big deviation affects machine learning algorithms greatly, and instead of extracting relationships across the whole time period, they would focus on the one or two months that are outliers. I have avoided this issue by removing a couple of months while training, but its important to note that these months aren't included in the model.
+COVID-19 put a pause on many people's lives, and many businesses. This is a problem for two reasons. First, only two sales occurred in the month of April 2020, which is a big outlier. Normally, sales hover between 200 and 400 per month. Such a big deviation affects machine learning algorithms greatly, and instead of extracting relationships across the whole time period to improve their score, they would focus on the one or two months that contribute to a high or low score. Removing this outlier is an option, but it would disrupt the model's reliance on sequential past data and reduce the chances that the models would be able to predict an event like this again.
 
-The second and more serious issue is how the pandemic disrupted the economy. While it had a direct impact on sales for this business, it also disrupted the business relationship between groups across the world. Many organizations underwent a period of rapid change, where few emerged operating exactly how they did before  April 2020.
+The second and more serious issue is how the pandemic disrupted the economy. While it had a direct impact on sales for this business, it also disrupted the business relationship between groups across the world. Many organizations underwent a period of rapid change, where few emerged operating exactly how they did before April 2020.
 
-The challenge with trying to predict business performance during this time is that whatever unidentified relationships existed between businesses before the pandemic have been changed or dissolved entirely. Currently, the models use the time before the pandemic to predict the business performance all future months. Without a way to quantify relationships that emerged after April 2020, the models make the assumption that the landscape of candidates and their relationship to this business has not changed since then.
+The challenge with trying to predict business performance during this time is that whatever relationships existed between businesses before the pandemic have been changed or dissolved entirely. Currently, the models are primarily trained on data before the pandemic to predict the business for all future months. Without a way to quantify relationships that emerged after April 2020, the models make the assumption that the landscape of candidates and their relationship to this business has not changed since then.
 
+## Evaluation
+
+Generally, I take a look at how the predicted line compares to actual business performance, and compare their scores including mean squared error and the coefficient of determination
 
 # 
 
@@ -963,38 +1070,6 @@ style so we can easily compare it to other economic trends.
 # Data Sources
 
 ```{r, include=FALSE}
-# read in json  files
-library(rjson)
-
-stock_info <- fromJSON(file = "data/out/stocks_info.json")
-
-fred_info <- fromJSON(file = "data/out/fred_info.json")
-
-trend_info <- fromJSON(file = "data/out/trends_info.json")
-
-get_info <- function(data) {
-
-df <- data.frame()
-
-    for (i in names(data)){
-    
-        for (j in data[i]) {
-            r <- c(key = i, unlist(j))
-            }
-        df <- rbind(df, r)
-    }
-    
-    names(df) <- c("key", names(data[[1]]))
-    
-    return(df)
-}
-
-info_df <- rbind(get_info(stock_info),
-                 get_info(fred_info),
-                 get_info(trend_info)) %>%
-    dplyr::summarise(name, key, category, updated, `citation`, link)
-
- # add in best lag and usage per model here
 
 
 

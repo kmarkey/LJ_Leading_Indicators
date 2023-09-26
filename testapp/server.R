@@ -15,21 +15,21 @@ source("appData.R")
 
 server <- function(input, output) {
   # calculate values
-  timeframe_f <- function(t) {
-    case_when(
-      t == "all_time" ~ as.Date(c(min(KDAc$date), max(KDAc$date))),
-      t == "past_5" ~ as.Date(c(
-        max(KDAc$date) - years(5), max(KDAc$date)
-      )),
-      t == "past_1" ~ as.Date(c(
-        max(KDAc$date) - years(1), max(KDAc$date)
-      )),
-      t == "past_6" ~ as.Date(c(
-        max(KDAc$date) - months(6, abbreviate = FALSE),
-        max(KDAc$date)
-      ))
-    )
-  }
+  # timeframe_f <- function(t) {
+  #   case_when(
+  #     t == "all_time" ~ as.Date(c(min(KDAc$date), max(KDAc$date))),
+  #     t == "past_5" ~ as.Date(c(
+  #       max(KDAc$date) - years(5), max(KDAc$date)
+  #     )),
+  #     t == "past_1" ~ as.Date(c(
+  #       max(KDAc$date) - years(1), max(KDAc$date)
+  #     )),
+  #     t == "past_6" ~ as.Date(c(
+  #       max(KDAc$date) - months(6, abbreviate = FALSE),
+  #       max(KDAc$date)
+  #     ))
+  #   )
+  # }
   
   output$plot_history <- renderPlotly({
     
@@ -129,13 +129,35 @@ server <- function(input, output) {
       dplyr::mutate(mgroup = factor(month(pmonth) - month(date), ordered = TRUE),
                     theyear = year(date)) %>%
       
+      {
+        if ((all(input$purchase_lease == "P") |
+             all(input$purchase_lease == "L")) &
+            !is.null(input$purchase_lease))
+          
+          dplyr::filter(., pl == input$purchase_lease)
+        else
+          .
+      } %>%
+      
+      # new used
+      {
+        if ((all(input$new_used == "NEW") |
+             all(input$new_used == "USED")) &
+            !is.null(input$new_used))
+          
+          dplyr::filter(., nu == input$new_used) # this and last month
+        
+        else
+          .
+      } %>%
+      
       group_by(mgroup, theyear) %>%
       
       {
-        if (input$metric2 == "number_of_sales")
+        if (input$metric == "number_of_sales")
           summarise(., y = n(), mgroup, theyear)
         else
-          summarise(., y = mean(get(input$metric2), na.rm = TRUE), mgroup, theyear)
+          summarise(., y = mean(get(input$metric), na.rm = TRUE), mgroup, theyear)
       } %>%
       
       distinct() %>%
@@ -160,19 +182,19 @@ server <- function(input, output) {
         position = 'dodge',
       ) +
       
-      geom_text(
-        data = data,
-        aes(
-          x = rev(mgroup),
-          y = 0,
-          group = theyear,
-          label = theyear,
-          color = y < 5
-        ),
-        position = position_dodge(width = 0.8),
-        angle = 90,
-        hjust = - 0.1
-      ) +
+      # geom_text(
+      #   data = data,
+      #   aes(
+      #     x = rev(mgroup),
+      #     y = 0,
+      #     group = theyear,
+      #     label = theyear,
+      #     color = y < 5
+      #   ),
+      #   position = position_dodge(width = 0.8),
+      #   angle = 90,
+      #   hjust = - 0.1
+      # ) +
       
       scale_x_discrete(labels = mlabs, limits = rev) +
       
@@ -192,11 +214,21 @@ server <- function(input, output) {
   
   output$plot_movers <- renderPlotly({
     
-    
     start <- month_bounds(input$month_select)[1] - months(1)
+    
     end <- month_bounds(input$month_select)[2]# get data, always for selected month
     
     data <- KDAc %>%
+      
+      {
+        if ((all(input$purchase_lease_movers == "P") |
+             all(input$purchase_lease_movers == "L")) &
+            !is.null(input$purchase_lease_movers))
+          
+          dplyr::filter(., pl == input$purchase_lease_movers)
+        else
+          .
+      } %>%
       
       {
         if ((all(input$new_used_movers == "NEW") |
@@ -259,12 +291,12 @@ server <- function(input, output) {
       ) +
       
       geom_point(
-        aes(x = carname, y = last, color = change > 0, text = paste0(last)),
+        aes(x = carname, y = last, color = change > 0, none = last),
         size  = 9.5
       ) +
       
       geom_point(
-        aes(x = carname, y = current, color = change > 0, text = paste0(current)),
+        aes(x = carname, y = current, color = change > 0, none = current),
         size  = 9.5
       ) +
       
@@ -306,7 +338,7 @@ server <- function(input, output) {
       labs(x = "",
            y = "Change In Sales")
     
-    ggplotly(p, tooltop = "text")
+    ggplotly(p, tooltip = "none")
   })
   
   output$plot_rank <-  renderPlotly({
@@ -362,8 +394,8 @@ server <- function(input, output) {
   
   output$plot_top_salesmen <- renderPlot({
       
-    start <- month_bounds(input$month_select)[1]
-    end <- month_bounds(input$month_select)[2]# get data, always for selected month
+    start <- month_bounds(input$month_select_personnel)[1]
+    end <- month_bounds(input$month_select_personnel)[2]# get data, always for selected month
     
     data <- KDAc %>%
       
@@ -421,11 +453,84 @@ server <- function(input, output) {
       labs(y = "",
            x = str_to_title(gsub("_", " ", input$metric3))) +
       
-      scale_y_continuous(expand = expansion(mult = c(-0.3, 0.1)),
+      expand_limits(y = 0) + 
+      
+      scale_y_continuous(expand = expansion(mult = 0.1),
                          breaks = integer_breaks(),
                          labels = comma) +
       
-      expand_limits(y = 0) +
+      theme(axis.text.x = element_blank(),
+            axis.ticks.x = element_blank())
+  })
+  
+  output$plot_top_salesmanager <- renderPlot({
+    
+    start <- month_bounds(input$month_select_personnel)[1]
+    end <- month_bounds(input$month_select_personnel)[2]# get data, always for selected month
+    
+    data <- KDAc %>%
+      
+      dplyr::filter(date >= start, date <= end, !is.na(salesmanager)) %>%
+      
+      dplyr::filter(date >= start, date <= end) %>%
+      
+      group_by(salesmanager) %>%
+      
+      # metric
+      {
+        if (input$metric3 == "number_of_sales")
+          
+          dplyr::summarise(., metric = n())
+        
+        else
+          
+          dplyr::summarise(., metric = mean(get(input$metric3), na.rm = TRUE))
+      } %>%
+      
+      distinct() %>%
+      
+      slice_max(n = input$n_performers,
+                order_by = metric)
+    
+    # plotting
+    data %>%
+      ggplot() + geom_bar(aes(x = reorder(salesmanager, metric),
+                              y = metric),
+                          color = "transparent",
+                          fill = blue,
+                          stat = "identity") +
+      
+      {
+        if (input$metric3 == "number_of_sales")
+          geom_label(aes(
+            x = salesmanager,
+            y = metric,
+            label = paste0(salesmanager, "\n", round(metric, digits = 0))
+          ),
+          size = 3)
+        
+        else
+          geom_label(
+            aes(
+              x = salesmanager,
+              y = metric,
+              label = paste0(salesmanager, "\n$", scales::comma(round(metric, digits = 0)))
+            ),
+            size = 3)
+      } +
+      # geom_label(aes(x = salesman,
+      #                y = get(input$metric3),
+      #                label = paste0(salesman, "\n", scales::comma(round(get(input$metric3), digits = 0)))),
+      #            size = 3) +
+      
+      labs(y = "",
+           x = str_to_title(gsub("_", " ", input$metric3))) +
+      
+      expand_limits(y = 0) + 
+      
+      scale_y_continuous(expand = expansion(mult = 0.1),
+                         breaks = integer_breaks(),
+                         labels = comma) +
       
       theme(axis.text.x = element_blank(),
             axis.ticks.x = element_blank())
@@ -433,8 +538,8 @@ server <- function(input, output) {
   
   output$plot_top_fi <- renderPlot({
     
-    start <- month_bounds(input$month_select)[1]
-    end <- month_bounds(input$month_select)[2]# get data, always for selected month
+    start <- month_bounds(input$month_select_personnel)[1]
+    end <- month_bounds(input$month_select_personnel)[2]# get data, always for selected month
     
     data <- KDAc %>%
       
@@ -492,15 +597,51 @@ server <- function(input, output) {
       labs(y = "",
            x = str_to_title(gsub("_", " ", input$metric3))) +
       
-      scale_y_continuous(expand = expansion(mult = c(-0.3, 0.1)),
+      expand_limits(y = 0) + 
+      
+      scale_y_continuous(expand = expansion(mult = 0.1),
                          breaks = integer_breaks(),
                          labels = comma) +
-      
-      expand_limits(y = 0) +
       
       theme(axis.text.x = element_blank(),
             axis.ticks.x = element_blank())
   })
   
-
+  output$info_table <- renderDataTable({
+    
+    complete_info %>%
+      
+      dplyr::select(-citation) %>%
+      
+      # cols to html format
+      dplyr::mutate(name = case_when(
+        is.na(link) ~ key,!is.na(link) ~ paste0("<a href=", link, " target = _blank>", name, "</a>")
+      )) %>%
+      
+      # round everything
+      mutate(across(is.numeric, round, digits = 3)) %>%
+      
+      select(
+        name,
+        category,
+        updated,
+        key,
+        lag,
+        correlation,
+        lasso,
+        `decision tree`,
+        `random forest`,
+        gru,
+        lstm,
+        -link
+      )
+  }, escape = FALSE)
+  
+  observeEvent(input$history, {
+    if(input$history == "monthorder") {
+      shinyjs::disable('resolution') 
+    } else {
+      shinyjs::enable('resolution')
+    }
+  }, ignoreNULL = T)
 }

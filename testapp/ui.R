@@ -6,7 +6,7 @@
 #
 #    http://shiny.rstudio.com/
 #
-
+library(extrafont)
 library(shiny)
 
 # bslib instead of shiny dashboard
@@ -25,6 +25,13 @@ source("appData.R")
 
 month_select <- selectInput(
   "month_select",
+  label = NULL,
+  choices = month_choices,
+  selected = selected_month
+)
+
+month_select_personnel <- selectInput(
+  "month_select_personnel",
   label = NULL,
   choices = month_choices,
   selected = selected_month
@@ -84,6 +91,15 @@ metric <- selectInput(
   selected = "number_of_sales"
 )
 
+
+purchase_lease_movers <- checkboxGroupButtons(
+  "purchase_lease_movers",
+  "Purchased/Leased:",
+  choices = c("Purchased" = "P",
+              "Leased" = "L"),
+  selected = c("P", "L")
+)
+
 new_used_movers <- checkboxGroupButtons(
   "new_used_movers",
   "New/Used:",
@@ -101,22 +117,18 @@ n_movers <- sliderInput(
   step = 1
 )
 
-n_months <- sliderInput(
-  "n_months",
-  "Number of Months",
-  min = 1,
+n_months <- numericInput(
+  inputId = "n_months",
+  label = NULL,
+  value = 5,
   max = month(pmonth),
-  value = 1,
-  step = 1
-)
+  width = "80px")
 
-n_years <- sliderInput(
-  "n_years",
-  "Number of Years",
-  min = 1,
-  max = 10,
+n_years <- numericInput(
+  inputId = "n_years",
+  label = NULL,
   value = 3,
-  step = 1
+  width = "80px"
 )
 
 metric2 <- selectInput(
@@ -156,7 +168,9 @@ n_performers <- sliderInput(
 
 ui <- page_navbar(
   title = "LJ Leading Indicators",
+  id  = "root",
   fluid = TRUE,
+  
   nav_menu(
     title = "Business",
     value = "business",
@@ -166,36 +180,46 @@ ui <- page_navbar(
     nav_panel(
       title = "History",
       icon = icon("clock"),
-      
       navset_card_tab(
-        full_screen = TRUE,
-        title = "History",
+        id = "history",
+        
+        sidebar = sidebar(metric, resolution, purchase_lease, new_used),
+        # type = "hidden",
+        #full_screen = TRUE,
+        #title = "History",
         
         nav_panel(
-          "Time Series",
-          card_title("Time Series"),
+          title = "Time Series",
+          value = "timeseries",
+          shinyjs::useShinyjs(),
           
-          card(
-            layout_sidebar(
-              value = "history",
-              full_screen = TRUE,
-              plotlyOutput("plot_history"),
-              sidebar = sidebar(metric, resolution, purchase_lease, new_used)
-            )
-          )
+          card(full_screen = TRUE,
+               plotlyOutput("plot_history"))
         ),
         
         nav_panel(
-          "Month Order",
-          card_title("Month Order"),
-          
-          card(
-            layout_sidebar(
-              value = "last_year",
-              full_screen = TRUE,
-              plotlyOutput("plot_last_year"),
-              sidebar = sidebar(metric2, n_months, n_years)
+          title = "Month Order",
+          value =
+            "monthorder",
+          shinyjs::useShinyjs(),
+          tags$head(
+            tags$style(
+              type = "text/css",
+              "#inline label{ display: table-cell; text-align: right; vertical-align: middle; }
+                #inline .form-group { display: table-row;}"
             )
+          ),
+
+          card(
+                card_body(padding = c("20px", "30px"), 
+                          height = "100px", 
+                          fillable = FALSE,
+                  fluidRow(
+                                      "Showing", n_months, " months and ", n_years, "years"
+                    )
+                ),
+            
+            plotlyOutput("plot_last_year")
           )
         )
       )
@@ -203,55 +227,77 @@ ui <- page_navbar(
     
     # Movers
     nav_panel(
-      "Biggest Movers",
+      title = "Biggest Movers",
+      value = "biggestmovers",
       icon = icon("car"),
       layout_sidebar(
         value = "biggest-movers",
-        card(
-          full_screen = TRUE,
-          plotlyOutput("plot_movers")
-        ),
-        sidebar = sidebar(new_used_movers, n_movers)
+        card(full_screen = TRUE,
+             plotlyOutput("plot_movers")),
+        sidebar = sidebar(
+          month_select,
+          purchase_lease_movers,
+          new_used_movers,
+          n_movers
+        )
       )
     )
     
-    # Ranking
-    # nav_panel(
-    #   "Ranking",
-    #   icon = icon("ranking-star"),
-    #   card(full_screen = TRUE,
-    #        card_header(paste0("Ranking ", repfor)),
-    #        plotlyOutput("plot_rank"))
-    # )
+
   ),
   
   # personnel
-
+  
   # salesman
+  
+  # make these value boxes!!!
   nav_panel(
-    "Personnel",
+    title = "Personnel",
+    value = "personnel",
     icon = icon("user-tie"),
+    
     layout_sidebar(
-      value = "personnel",
-      card(
-        full_screen = TRUE,
-        card_header("Top Salesmen"),
-        plotOutput("plot_top_salesmen")
+      value = "personnel-sidebar",
+      
+      layout_column_wrap(
+        width = 1,
+        height = 1 / 2,
+        card(
+          full_screen = TRUE,
+          card_header("Top Salesmen"),
+          plotOutput("plot_top_salesmen")
+        ),
+        
+        layout_column_wrap(
+          width = 1 / 2,
+          height = 1 / 2,
+          card(
+            full_screen = TRUE,
+            card_header("Top Sales Managers"),
+            plotOutput("plot_top_salesmanager")
+          ),
+          card(
+            full_screen = TRUE,
+            card_header("Top Finance Managers"),
+            plotOutput("plot_top_fi")
+          )
+        )
       ),
-      card(
-        full_screen = TRUE,
-        card_header("Top Finance Managers"),
-        plotOutput("plot_top_fi")
-      ),
-      sidebar = sidebar(metric3, n_performers)
-  )
+      sidebar = sidebar(month_select_personnel, metric3, n_performers)
+    )
   ),
   
   # prediction tab
   nav_panel(
     title = "Leading Indicators",
     value = "leadingindicators",
-    icon = icon("bolt-lightning")
+    icon = icon("bolt-lightning"),
+
+    
+    card(
+      full_screen = TRUE,
+      dataTableOutput("info_table")
+    )
   ),
   
   nav_panel(
@@ -259,11 +305,6 @@ ui <- page_navbar(
     value = "prediction",
     icon = icon("cubes-stacked")
   ),
-  
-  
-  nav_spacer(),
-  
-  nav_item(month_select),
   
   nav_spacer(),
   
@@ -276,11 +317,13 @@ ui <- page_navbar(
     nav_item(
       title = "Version",
       value = "version",
-      tags$a("Last update:", repfor)
+      tags$a("Last update:", maxdate)
     ),
     
+    # link to form for maintenance
     nav_item(
       tags$a(icon("envelope"), "Maintenance Request", href = "https://forms.gle/mbG3dKhh5m1gZs176")
     )
   )
 )
+  

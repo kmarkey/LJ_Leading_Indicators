@@ -90,21 +90,16 @@ ljtheme <- function() {
     )
 }
 
-library(elementalist) # devtools::install_github("teunbrand/elementalist")
-
 webtheme <- function(){
+  theme_minimal() %+replace%
+    
   theme(
-    # legend.background = element_rect_round(radius = unit(0.2, "snpc")),
-    # legend.key = element_rect_round(radius = unit(0.4, "snpc")),
     panel.background = element_blank(),
-    # strip.background = element_rect_round(radius = unit(0.1, "pt")),
     plot.background  = element_blank(), 
     axis.ticks.x = element_blank(),
     axis.ticks.y = element_blank(),
     panel.grid.major.y = element_line(colour = "black"),
-    
-    
-    
+    text = element_text(family = "Font Awesome 5 Free")
   )
 }
 
@@ -113,7 +108,7 @@ integer_breaks <- function(n = 5, ...) {
   fxn <- function(x) {
     breaks <- floor(pretty(x, n, ...))
     names(breaks) <- attr(breaks, "labels")
-    breaks
+    return(breaks)
   }
   return(fxn)
 }

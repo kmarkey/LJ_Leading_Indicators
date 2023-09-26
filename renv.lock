@@ -105,6 +105,16 @@
       ],
       "Hash": "f8a578aa91321ecec1292f1e2ffadeda"
     },
+    "Rttf2pt1": {
+      "Package": "Rttf2pt1",
+      "Version": "1.3.12",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "a60168d094ca7e4de5106d60001c3964"
+    },
     "anytime": {
       "Package": "anytime",
       "Version": "0.3.9",
@@ -445,26 +455,6 @@
       ],
       "Hash": "c5f8828a0b459a703db190b001ad4818"
     },
-    "elementalist": {
-      "Package": "elementalist",
-      "Version": "0.0.0.9000",
-      "Source": "GitHub",
-      "RemoteType": "github",
-      "RemoteHost": "api.github.com",
-      "RemoteRepo": "elementalist",
-      "RemoteUsername": "teunbrand",
-      "RemoteRef": "HEAD",
-      "RemoteSha": "2de32498a46d5f507d03b815a093654d6243355a",
-      "Requirements": [
-        "ggplot2",
-        "grid",
-        "gtable",
-        "scales",
-        "stats",
-        "vctrs"
-      ],
-      "Hash": "2b507b7df7af3093c33e6f602d7994f5"
-    },
     "ellipsis": {
       "Package": "ellipsis",
       "Version": "0.3.2",
@@ -486,6 +476,30 @@
         "methods"
       ],
       "Hash": "5aac3cd0a3ccb1a738941796b28c26fe"
+    },
+    "extrafont": {
+      "Package": "extrafont",
+      "Version": "0.19",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "Rttf2pt1",
+        "extrafontdb",
+        "grDevices",
+        "utils"
+      ],
+      "Hash": "03d9939b37164f34e0522fef13e63158"
+    },
+    "extrafontdb": {
+      "Package": "extrafontdb",
+      "Version": "1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "a861555ddec7451c653b40e713166c6f"
     },
     "fansi": {
       "Package": "fansi",
@@ -1481,6 +1495,19 @@
         "shiny"
       ],
       "Hash": "fd889b32caa37b8ed9b1e9e7ef1564bc"
+    },
+    "shinyjs": {
+      "Package": "shinyjs",
+      "Version": "2.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "digest",
+        "jsonlite",
+        "shiny"
+      ],
+      "Hash": "802e4786b353a4bb27116957558548d5"
     },
     "sourcetools": {
       "Package": "sourcetools",

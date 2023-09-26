@@ -365,8 +365,6 @@ class fred(manager):
             
             url = "https://fred.stlouisfed.org/series/{}".format(v)
         
-            self.log.info("In fredpairs loop for{}".format(k))
-            
             response = requests.get(url, timeout = 5)
         
             try:
