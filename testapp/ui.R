@@ -296,7 +296,7 @@ ui <- page_navbar(
     
     card(
       full_screen = TRUE,
-      dataTableOutput("info_table")
+      DT::DTOutput("info_table")
     )
   ),
   

@@ -607,7 +607,7 @@ server <- function(input, output) {
             axis.ticks.x = element_blank())
   })
   
-  output$info_table <- renderDataTable({
+  output$info_table <- DT::renderDT({
     
     complete_info %>%
       
@@ -635,7 +635,7 @@ server <- function(input, output) {
         lstm,
         -link
       )
-  }, escape = FALSE)
+  }, filter = "top", escape = FALSE)
   
   observeEvent(input$history, {
     if(input$history == "monthorder") {
