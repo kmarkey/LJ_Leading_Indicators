@@ -13,7 +13,7 @@ tags$style(type="text/css",
 
 
 # runtime app data
-KDAc <- read_csv("../data/sour/KDAc.csv", show_col_types = FALSE)
+KDAc <- read_csv("data/KDAc.csv", show_col_types = FALSE)
 
 # generated on
 today <- Sys.Date()
@@ -64,32 +64,32 @@ month_bounds <- function(string) {
 ##################### table #############################
 
 #read in indicidual files
-cf <- read_csv("../data/out/corr_frame.csv", 
-               col_names = c("name", "correlation"), 
+cf <- read_csv("data/snapshots/corr_frame.csv",
+               col_names = c("name", "correlation"),
                skip = 1,
                col_types = c("cd"))
 
-l <- read_csv("../models/dev/snapshots/2023-09-22/l-imp.csv",
+l <- read_csv("data/snapshots/l-imp.csv",
               col_names = c("idx", "lasso", "name"),
               skip = 1,
               col_types = c("idc"))
 
-t <- read_csv("../models/dev/snapshots/2023-09-22/t-imp.csv", 
+t <- read_csv("data/snapshots/t-imp.csv",
               col_names = c("idx", "decision tree", "name"),
               skip = 1,
               col_types = c("idc"))
 
-r <- read_csv("../models/dev/snapshots/2023-09-22/r-imp.csv", 
+r <- read_csv("data/snapshots/r-imp.csv",
               col_names = c("idx", "random forest", "name"),
               skip = 1,
               col_types = c("idc"))
 
-g <- read_csv("../models/dev/snapshots/2023-09-22/g-imp.csv", 
+g <- read_csv("data/snapshots/g-imp.csv",
               col_names = c("idx", "gru", "name"),
               skip = 1,
               col_types = c("idc"))
 
-m <- read_csv("../models/dev/snapshots/2023-09-22/m-imp.csv", 
+m <- read_csv("data/snapshots/m-imp.csv",
               col_names = c("idx", "lstm", "name"),
               skip = 1,
               col_types = c("idc"))
@@ -101,12 +101,12 @@ coyote <- left_join(cf, l, by = "name") %>%
   left_join(g, by = "name") %>%
   left_join(m, by = "name") %>%
   dplyr::select(-starts_with("idx")) %>%
-  
+
   # split out name to root and lag
   separate(col = name,
            into = c("key", "lag"),
            sep = "_lag") %>%
-  
+
   mutate(root = sub("_v$", "", key),
          lag = as.numeric(lag))
 
@@ -114,11 +114,11 @@ coyote <- left_join(cf, l, by = "name") %>%
 # read in json  files
 library(rjson)
 
-stock_info <- fromJSON(file = "../data/out/stocks_info.json")
+stock_info <- fromJSON(file = "data/stocks_info.json")
 
-fred_info <- fromJSON(file = "../data/out/fred_info.json")
+fred_info <- fromJSON(file = "data/fred_info.json")
 
-trend_info <- fromJSON(file = "../data/out/trends_info.json")
+trend_info <- fromJSON(file = "data/trends_info.json")
 
 # parse Json fun
 get_info <- function(data) {

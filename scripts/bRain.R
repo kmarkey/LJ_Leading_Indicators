@@ -6,7 +6,7 @@ library(reticulate)
 renv::use_python("renv/python/virtualenvs/renv-python-3.10/Scripts/python.exe")
 
 # params
-cor_max <- 0.20 # set feature correlation cutoff
+cor_max <- 0.15 # set feature correlation cutoff
 ahead <- 6 # set lead time in months
 train_set <- "all" # data subset being used
 targetvar <-  "n" # variable of interest
@@ -22,3 +22,5 @@ source("scripts/fishing.R")
 reticulate::source_python("scripts/fetch.py")
 
 source("scripts/collage.R")
+
+reticulate::source_python("models/dev/scripts/predict_all.py")

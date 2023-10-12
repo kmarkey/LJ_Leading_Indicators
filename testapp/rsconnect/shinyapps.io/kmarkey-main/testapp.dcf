@@ -1,0 +1,12 @@
+name: testapp
+title: testapp
+username: kmarkey-main
+account: kmarkey-main
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 10155833
+bundleId: 7788348
+url: https://kmarkey-main.shinyapps.io/testapp/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

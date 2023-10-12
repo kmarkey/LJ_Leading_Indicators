@@ -5,13 +5,14 @@ library(tidyverse)
 library(scales)
 library(plotly)
 
-source("../aesthetics/theme-and-palette.R")
+source("theme-and-palette.R")
 
 theme_set(webtheme())
 
 ## THEME
 source("appData.R")
 
+ahead <- 6
 
 server <- function(input, output) {
   # calculate values
@@ -179,7 +180,7 @@ server <- function(input, output) {
           text = paste0(round(y, 0), "\n", theyear)
         ),
         width = 0.8,
-        position = 'dodge',
+        position = 'dodge'
       ) +
       
       # geom_text(
@@ -351,7 +352,7 @@ server <- function(input, output) {
         `Back Gross Profit` = sum(back_gross_profit, na.rm = TRUE),
         `Front Gross Profit` = sum(front_gross_profit, na.rm = TRUE),
         `New Sales` = sum(ifelse(nu == "NEW", 1, 0)),
-        `Used Sales` = sum(ifelse(nu == "USED", 1, 0)),
+        `Used Sales` = sum(ifelse(nu == "USED", 1, 0))
       ) %>%
       distinct() %>%
       
@@ -613,15 +614,15 @@ server <- function(input, output) {
       
       dplyr::select(-citation) %>%
       
-      # cols to html format
+            # cols to html format
       dplyr::mutate(name = case_when(
-        is.na(link) ~ key,!is.na(link) ~ paste0("<a href=", link, " target = _blank>", name, "</a>")
+        is.na(link) ~ key, !is.na(link) ~ paste0("<a href=", link, " target = _blank>", name, "</a>")
       )) %>%
       
       # round everything
-      mutate(across(is.numeric, round, digits = 3)) %>%
+      dplyr::mutate(across(where(is.numeric), round, digits = 3)) %>%
       
-      select(
+      dplyr::select(
         name,
         category,
         updated,
@@ -634,8 +635,22 @@ server <- function(input, output) {
         gru,
         lstm,
         -link
-      )
-  }, filter = "top", escape = FALSE)
+      ) %>%
+    
+      {
+        if (input$features_filter == FALSE)
+          
+        dplyr::filter(., !is.na(complete_info$`lasso`), lag >= ahead)
+        
+        else .
+          
+          
+      } %>%
+      
+    
+      dplyr::rename_with(~str_to_title(.))
+      
+  }, filter = "top", escape = FALSE, options = list(paging = FALSE)) 
   
   observeEvent(input$history, {
     if(input$history == "monthorder") {

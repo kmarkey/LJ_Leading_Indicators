@@ -25,6 +25,7 @@ for (x in file_list) {
   # # file to join with x
   # KDAt <- read_csv(whole_file_path, show_col_types = FALSE)
   # 
+  
   # can csv?
   if (grepl("\\.csv$", x)) {
     
@@ -40,6 +41,7 @@ for (x in file_list) {
       trim_ws = TRUE,
       col_names = TRUE)
     
+    # very specific structure
     dummy_row <- structure(list(SOLD = structure(NA_real_, tzone = "UTC", class = c("POSIXct", 
                                                                                     "POSIXt")), `DEAL-NO` = NA_character_, `VEHICLE-STOCK-NO...` = NA_character_, 
                                 YEAR = NA_real_, MAKE = NA_character_, MODEL = NA_character_, 
@@ -48,8 +50,8 @@ for (x in file_list) {
                                 `CASH-PRICE` = NA_real_, PL = NA_character_, `SALE-TYPE` = NA_character_, 
                                 SALESMAN = NA_character_, SALESMANAGER = NA_character_, FIMANAGER = NA_character_), row.names = c(NA, 
                                                                                                                                   -1L), class = c("tbl_df", "tbl", "data.frame"))
-    
-    # possibly skip 2 lines
+
+    # if xlsx, possibly skip 2 lines
     if (sum(dummy_row == adata[1,], na.rm = TRUE) > 0) {
       
       adata <- read_xlsx(
@@ -58,25 +60,27 @@ for (x in file_list) {
         skip = 2,
         trim_ws = TRUE,
         col_names = TRUE,
-        col_types = c("date", "numeric", "text", "numeric", "text", "text", "text", "numeric", "numeric", "numeric", "numeric", "text", "text", "text", "text", "text"))
+        col_types = c("date", "numeric", "text", "numeric", "text", "text", "text", 
+                      "numeric", "numeric", "numeric", "numeric", "text", "text", 
+                      "text", "text", "text"))
       
     }
+    
+    # if no eligible files, 
   } else {
       
       log_info("No eligible files in bucket, reading most recent file")
-      
-      # read in clean file
-    ###### change to most recent by default#########
-      maxfile_date <- max(as.Date(
-        str_extract(list.files("data/sour/", pattern = "^KDAc"), pattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}")
-      ), na.rm = TRUE)
-      
-      maxfile_path <- paste0("./data/sour/KDAc-", maxfile_date, ".csv")
-      
-      KDAc <- read_csv(maxfile_path, show_col_types = FALSE)
-          
-      break
   }
+  
+  # read in most recent KDAc file
+
+  maxfile_date <- max(as.Date(
+    str_extract(list.files("data/sour/", pattern = "^KDAc"), pattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}")
+  ), na.rm = TRUE)
+      
+  maxfile_path <- paste0("./data/sour/KDAc-", maxfile_date, ".csv")
+  
+  KDAc <- read_csv(maxfile_path, show_col_types = FALSE)
   
   # has names?
   testit::assert("File doesn't have column names", !is.null(attr(adata, "names")))

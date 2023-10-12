@@ -31,9 +31,11 @@ os.chdir('C:\\Users\\keato\\Documents\\LocalRStudio\\LJ_Leading_Indicators')
 
 data = pd.read_csv("data/out/features.csv")
 
-
-def run_predict(data = data, split = 135, ahead = 6, save = True, verbose = False, branch = "dev"):
-    
+def run_predict(data = data, split = 129, ahead = 6, save = True, verbose = False, branch = "dev"):
+    """
+    Runs a series of models using data and a training and testing split
+    Defaults to always saving output
+    """
     l = linear_regression()
     l.fit(data = data, 
                   split = split,
@@ -72,7 +74,7 @@ def run_predict(data = data, split = 135, ahead = 6, save = True, verbose = Fals
     
     
     # get top 15 features
-    gimp = g.get_importances(15, names = True)
+    gimp = g.get_importances(20, names = True)
     g.fit(data = data, split = split, hidden_size= 16, num_epochs= 250, feature_selection=gimp, verbose = verbose)
     g.predict(ahead = ahead)
     
@@ -106,4 +108,5 @@ def run_predict(data = data, split = 135, ahead = 6, save = True, verbose = Fals
 
         m.full.to_csv(newpath + "/m.csv")
         m.get_importances().to_csv(newpath + "/m-imp.csv")
-    
+
+run_predict()

@@ -25,30 +25,17 @@ source("appData.R")
 
 month_select <- selectInput(
   "month_select",
-  label = NULL,
+  "Select Month:",
   choices = month_choices,
   selected = selected_month
 )
 
 month_select_personnel <- selectInput(
   "month_select_personnel",
-  label = NULL,
+  "Select Month:",
   choices = month_choices,
   selected = selected_month
 )
-
-
-# timeframe <- selectInput(
-#   "timeframe",
-#   "Select Timeframe:",
-#   choices = c(
-#     "All Time" = "all_time",
-#     "Past 5 Years" = "past_5",
-#     "Past Year" = "past_1",
-#     "Past 6 Months" = "past_6"
-#   ),
-#   selected = "all_time"
-# )
 
 resolution <- selectInput(
   "resolution",
@@ -90,7 +77,6 @@ metric <- selectInput(
   ),
   selected = "number_of_sales"
 )
-
 
 purchase_lease_movers <- checkboxGroupButtons(
   "purchase_lease_movers",
@@ -164,6 +150,12 @@ n_performers <- sliderInput(
   max = 10,
   value = 5,
   step = 1
+)
+
+features_filter <- switchInput(
+  "features_filter",
+  "Show All Leads",
+  value = FALSE
 )
 
 ui <- page_navbar(
@@ -293,10 +285,14 @@ ui <- page_navbar(
     value = "leadingindicators",
     icon = icon("bolt-lightning"),
 
-    
-    card(
-      full_screen = TRUE,
-      DT::DTOutput("info_table")
+    layout_sidebar(
+      card(
+        full_screen = TRUE,
+        column(width = 12,
+               DT::DTOutput("info_table"), 
+               style = "overflow-y: scroll")
+      ),
+      sidebar = sidebar(features_filter)
     )
   ),
   
