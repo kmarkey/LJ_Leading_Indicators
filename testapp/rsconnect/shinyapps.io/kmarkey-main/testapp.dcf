@@ -5,7 +5,7 @@ account: kmarkey-main
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 10155833
-bundleId: 7788348
+bundleId: 7831005
 url: https://kmarkey-main.shinyapps.io/testapp/
 version: 1
 asMultiple: FALSE

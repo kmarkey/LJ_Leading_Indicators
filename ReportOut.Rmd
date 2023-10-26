@@ -51,20 +51,36 @@ each month.
 
 ## 2. Find Leading Indicators
 
+### Data Sources
+
+For a sales-oriented business, the most important source of revenue is selling the product. For a consumer, buying a car is different than other purchases (such as buying food at the grocery store) in a few key ways:
+
+  - Buying a car is a big financial commitment
+  - A new car is not always a necessity
+  - Consumers have unparalleled choice of product
+  
+There are also similarities between buying a car and groceries:
+
+  - There is increasing competition from online shopping businesses (Carvana, AutoNation)
+  - A long and traceable pipeline from production to consumer
+
+According to recent research (Cox Automotive Research & Market Intelligence), people spend an average of 89 days to buy a car. And, the average car is owned for 8 years (The Zebra). Buying a car occurs when two worlds meet with perfect conditions-- the brand engineering the right product, creating advertising, and distributing, while the consumer is saving, researching options, shopping around, test-driving, and then buying. Buying a car is not just about money, but about timing. Thus, this project captures not just a variety of economic indicators, but also behavioral indicators that may precede buying a car.
+
 To find potential candidates, I consulted sources used by other similar projects, current
 market research, and suggestions. Leading indicators were selected from a
-pool of stocks closures, volumes, economic measures, Google Trends information, and some internal
-appointment and website data. Finding and extracting good predictors of business performance is also a necessary
+pool of stocks closures, volumes, economic measures, Google Trends information. Finding and extracting good indicators of business performance is also a necessary
 step to create accurate and reliable predictions.
 
-A "good" predictor of business performance can mean a few things, and does mean a few things in the scope of this project:
-  -   On one hand, a good predictor may mean any set of data that is highly correlated with business performance
-  -   On the contrary, a good predictor may just be a set of data that is important for a model to predict business performance.
+### Good Predictors
+
+A "good" predictor of business performance means a few things in the scope of this project:
+  -   On one hand, a good predictor may mean any set of data that is highly correlated with business performance. When the predictor rises, business booms, and when the predictor falls, business slows down.
+  -   A good predictor may also be a set of data that is important for a model to predict business performance.
   
-In other words, the leading indicators in this project are identified by both-readable and more complex mathematical methods. Some are better interpreted by people, and some are better interpreted by one of the few algorithms used to predict business performance. Where applicable, each indicator is given a score based on their importance to a model and correlation to business performance which you can view in the app.
+In other words, the leading indicators in this project are identified by both simple and more complex mathematical methods. Some are better interpreted by people, and some are better interpreted by one of the algorithms used to predict business performance. Where applicable, each indicator is given a score based on their importance to a model and correlation to business performance which you can view in the app.
 
 Identifying leading indicators can be translated to a machine learning
-problem called *feature selection*. The feature selection processes used in this project sometimes combine simple statistics with machine learning methods.
+problem called *feature selection*. The feature selection processes used in this project sometimes combine simple statistics and machine learning methods.
 
 After compiling a list of potential candidates, candidates that met the
 following criteria were excluded during the feature selection process:
@@ -73,16 +89,9 @@ following criteria were excluded during the feature selection process:
 -   Not released before the 5th of the month
 -   Not available for the duration of available data (2010-present)
 
-Candidates were then modified for the appropriate prediction interval (originally six months). Each indicator and it's modified subsidiaries were grouped together, and the single feature with the highest correlation was passed on as a _feature_.
+Candidates were then modified for the appropriate prediction interval (originally six months). Each indicator and it's modified subsidiaries were grouped together, and the single feature with the lowest Variance Inflation Factor (VIF) was passed on as a _feature_.
 
-During the prediction process the following machine learning techniques were employed to determine which indicators were important to each model:
-
--   Lasso L1 Regularization
--   Gini Impurity pruning
--   Permutation Feature Importance
--   Integrated Gradients
-
-These methods are further described in the next section in conjuction with their respective model.
+During the prediction process, machine learning techniques were employed to determine which indicators were important to each model. These methods are further described in the next section about models and feature selection.
 
 ## 3. Create Predictions
 
@@ -98,7 +107,7 @@ f)  LSTM
 
 Each model utilizes different methods to establish a relationship
 between the candidates and business performance. Thus, they must be
-interpreted differently. Below is a detailed description fo each model, some guidelines for interpretation, and
+interpreted differently. Below is a detailed description of each model, some guidelines for interpretation, and
 additional considerations.
 
 ### Linear Model
@@ -112,23 +121,21 @@ through Lasso regression (L1 regularization), optimized for mean-squared-error. 
 
 ### Decision Tree
 
-A decision tree is another simple method of prediction that is slow-moving and resistant to outliers. By establishing some binary question for each of the inputs, this model combines the answers into a prediction. For example, if the GM stock closes below 34.00 USD, a decision tree model might predict an decrease of 10 in the target variable. This model works poorly for changes on a small scale, but longer-term trends may be able to be detected early.
+A decision tree is another simple method of prediction that is slow-moving and resistant to outliers. By writing some binary (yes/no) question for each of the inputs, this model combines the answers into a prediction. For example, if the GM stock closes below 34.00 USD, a decision tree model might predict an decrease of 10 in the target variable. This model works poorly for changes on a small scale, but longer-term changes may be able to be detected early.
 
-###### PHOTO 
-
-Feature selection was performed by trimming the depth of the tree with 5-fold cross-validation to optimize mean-squared-error. Despite its simplicity, this model works well to predict future changes. It can also be understood easily and quantified mathematically. The leading indicators used in this model can be interpreted as those with the greatest impact on minimizing the residual error of the model. Only a few leading indicators are selected by this method, and their importances were calculated using the Gini importance.
+Feature selection was performed by trimming the depth of the tree with 5-fold cross-validation to optimize mean-squared-error. Despite its simplicity, this model works well to predict future changes. It can also be understood easily and quantified mathematically. The leading indicators used in this model can be interpreted as those with the greatest impact on minimizing the residual error of the model during cross-validation. Only a few leading indicators are selected by this method, and their importances were calculated using the Gini importance according to existing documentation (sklearn).
 
 ### Random Forest
 
-A random forest is a collection of hundreds of decision trees, each composed of different features, that each take votes on estimating the target variable. This method is even less sensitive to large changes due to the voting system. This method is extremely effective and uses the best estimates from the best predictors.
+A random forest is a collection of hundreds of decision trees, each composed of different features, that each take votes on estimating the target variable. This method is extremely effective and uses the best estimates from the best predictors.
 
-The architecture of the model was set using 5-fold cross-validation on maximum tree depth and the minimum  number of samples per leaf. Feature selection was performed by calculating the permutation importance of each feature on a validation set, and running the model again with only features that had higher than mean feature importance. Features important to this model can be described as those that most often contribute to creating effective decision trees. This model is more complex, and while it can be translated into a series of decision trees, its more challenging to quantify a direct relationship between each leading indicator and the target.
+The architecture of the model was set using 5-fold cross-validation on maximum tree depth and the minimum  number of samples per leaf to discourage outlier bias. Feature selection was performed by calculating the permutation importance of each feature on a validation set, and running the model again with only features that had higher than mean feature importance. Features important to this model can be described as those that most often contribute to creating effective decision trees. This model is more complex, and while it can be translated into a series of decision trees, its less clearly able to quantify a direct relationship between each leading indicator and the target.
 
 ### ARIMA
 
 An Auto-Regressive Integrated Moving Average is a classic model of time-series prediction. Instead of using leading indicators, this makes a prediction based on linear relationships to past observations of the target variable (autoregression) and a calculated moving average. The performance of this model depends greatly on seasonality. This model is a benchmark for the success of this project. If the other regression models cannot outperform it, then it may not be beneficial to consider leading indicators at all.
 
-All features in this model are progressively lagged vectors of the target variable, up to 12 months.
+All features in this model are monthly lagged versions of the target variable, up to 12 months.
 
 ### GRU
 
@@ -138,9 +145,97 @@ After its first training pass, this model selects the top 10-20 most important f
 
 ### LSTM
 
-A Long-Short-Term Memory is a deep neural network that is well-suited to the problem of time-series prediction. This is the most complex model used in this project. Being a bit larger than a GRU, this model was also throttled to reduce risks associated with using overpowered models. 
+A Long-Short-Term Memory is a deep neural network that is well-suited to the problem of time-series prediction. This is the most complex model used in this project. Being a bit larger than a GRU, this model was also throttled to reduce risks associated with using overfitted models. 
+
+This model uses all selected features and does not perform its own feature selection. 
 
 # Results
+
+```{r}
+library(plotly)
+
+# list 
+file_list <- list.files("models/dev/snapshots/2023-10-19", pattern = "^[a-z].csv", full.names = TRUE)
+
+new_colnames <- c("idx" = "...1", 
+                    "actual" = "actual", 
+                    "group" = "group", 
+                    "arima" = "pred.x", 
+                    "gru" = "pred.y", 
+                    "lasso" = "pred.x.x", 
+                    "lstm" = "pred.y.y", 
+                    "random forest" = "pred.x.x.x", 
+                    "decision tree" = "pred.y.y.y")
+
+brot <-  purrr::map(file_list, read_csv) %>%
+  # purrr::map_dfc(file_list, read_csv)
+  purrr::reduce(dplyr::left_join,
+                by = c("...1", "actual", "group"),
+                copy = FALSE) %>%
+  dplyr::rename(new_colnames) %>%
+  # reorder and pivot cols
+  pivot_longer(
+    cols = c(
+      "actual",
+      "lasso",
+      "decision tree",
+      "random forest",
+      "arima",
+      "gru",
+      "lstm"
+    ),
+    names_to = "model",
+    values_to = "value"
+  )
+  
+# ?purrr::map
+# str_extract(file_list, pattern = "[a-z](?=.csv)")
+# 
+# l <- read_csv("models/dev/snapshots/2023-09-22/l.csv",
+#               col_names = c("idx", "actual", "lasso", "group"),
+#               show_col_types = FALSE)
+# 
+# t <- read_csv("models/dev/snapshots/2023-09-22/t.csv", 
+#               col_names = c("idx", "actual", "decision tree", "group"),
+#               show_col_types = FALSE)
+# 
+# r <- read_csv("models/dev/snapshots/2023-09-22/r.csv",
+#               col_names = c("idx", "actual", "random forest", "group"),
+#               show_col_types = FALSE)
+# 
+# a <- read_csv("models/dev/snapshots/2023-09-22/a.csv", 
+#               col_names = c("idx", "actual", "arima", "group"),
+#               show_col_types = FALSE)
+# 
+# g <- read_csv("models/dev/snapshots/2023-09-22/g.csv", 
+#               col_names = c("idx", "actual", "gru", "group"),
+#               show_col_types = FALSE)
+# 
+# m <- read_csv("models/dev/snapshots/2023-09-22/m.csv",
+#               col_names = c("idx", "actual", "lstm", "group"),
+#               show_col_types = FALSE)
+# 
+# coyote <- l %>%
+#   
+#   left_join(t, by = c("idx", "actual", "group"), keep = FALSE) %>%
+#   left_join(r, by = c("idx", "actual", "group"), keep = FALSE) %>%
+#   left_join(a, by = c("idx", "actual", "group"), keep = FALSE) %>%
+#   left_join(g, by = c("idx", "actual", "group"), keep = FALSE) %>%
+#   left_join(m, by = c("idx", "actual", "group"), keep = FALSE) %>%
+#   
+#   dplyr::filter(row_number() != 1) %>%
+#   
+#   pivot_longer(cols = c("actual", "lasso", "decision tree", "random forest", "arima", "gru", "lstm"), 
+#                names_to = "model", 
+#                values_to = "value")
+
+p <- ggplot(brot) + 
+  geom_line(aes(x = idx, y = as.numeric(value), group = model, color = model)) + 
+  geom_vline(aes(xintercept = 129)) +
+  scale_color_discrete()
+
+ggplotly(p)
+```
 
 ## Leading Indicators
 
@@ -149,7 +244,7 @@ As discussed, its important to remember that leading indicators are identified b
 Below is a table of all candidates and their importance with respect to each model.
 
 ```{r}
-
+# list 
 cf <- read_csv("data/out/corr_frame.csv", show_col_types = FALSE, col_names = c("name", "correlation"), skip = 1)
 
 l <- read_csv("models/dev/snapshots/2023-09-22/l-imp.csv",
@@ -224,12 +319,9 @@ info_df <- rbind(get_info(stock_info),
 complete_info <- left_join(coyote, info_df, by = "key")
 ```
 
-
-## Prediction Models
-
 # Discussion
 
-One of the most important concerns when prediction and training machine
+One of the greatest concerns when creating machine
 learning models is called *overfitting*. This is a phenomenon that
 occurs when the model fits the training data very well, but performs
 poorly when asked to predict new data. For example, the models
@@ -257,19 +349,22 @@ selection and model performance tests. Often methods like bootstrapping and samp
 Additionally, with all the data the models use, it is possible that there is more economic information, stock trades, or other metric that may prove useful. More features may still be necessary to improve prediction of business performance and reduce overfitting.
 In the future, including more monthly observations and more feature candidates is necessary for improving this project.
 
-## NOTE: COVID-19
+## COVID-19
 
-COVID-19 put a pause on many people's lives, and many businesses. This is a problem for two reasons. First, only two sales occurred in the month of April 2020, which is a big outlier. Normally, sales hover between 200 and 400 per month. Such a big deviation affects machine learning algorithms greatly, and instead of extracting relationships across the whole time period to improve their score, they would focus on the one or two months that contribute to a high or low score. Removing this outlier is an option, but it would disrupt the model's reliance on sequential past data and reduce the chances that the models would be able to predict an event like this again.
+COVID-19 put a pause on many businesses. This is a problem for two reasons. First, only two sales occurred in the month of April 2020, which is far removed from the rest of the data--normally, sales hover between 200 and 400 per month. Such a big deviation affects machine learning algorithms greatly, and instead of extracting relationships across the whole time period to improve their score, they would focus on the one or two months that contribute to a high or low score, such as April 2020. Removing this outlier is an option, but it would disrupt the model's usage of sequential data and reduce the chances that we would be able to predict an event like this should it happen in the future.
 
 The second and more serious issue is how the pandemic disrupted the economy. While it had a direct impact on sales for this business, it also disrupted the business relationship between groups across the world. Many organizations underwent a period of rapid change, where few emerged operating exactly how they did before April 2020.
 
-The challenge with trying to predict business performance during this time is that whatever relationships existed between businesses before the pandemic have been changed or dissolved entirely. Currently, the models are primarily trained on data before the pandemic to predict the business for all future months. Without a way to quantify relationships that emerged after April 2020, the models make the assumption that the landscape of candidates and their relationship to this business has not changed since then.
+The challenge with trying to predict business performance during this time is that whatever relationships existed between businesses before the pandemic have been changed or dissolved entirely. Currently, the models are primarily trained on data before the pandemic to predict the business for all future months. Without a reliable way to test relationships that emerged after April 2020, we must make the assumption that the landscape of candidates and their relationship to this business has not changed since then.
 
 ## Evaluation
 
-Generally, I take a look at how the predicted line compares to actual business performance, and compare their scores including mean squared error and the coefficient of determination
+Generally, two metrics were used to evaluate the prediction models: mean-squared error ($MSE$) and coefficient of determination (${R^2}$).
 
-# 
+
+
+While many candidates were not included in the prediction phase, either due to collection irregularities or feature selection, they still might be useful in interpreting business performance. It is not correct to say that these candidates aren't important at all, but we can say that they are likely less important than the chosen leading indicators
+
 
 # Figure Appendix
 
@@ -798,132 +893,115 @@ data %>%
         axis.ticks.x = element_blank())
 ```
 
-# Next Month?
+<!-- # Next Month? -->
 
-Based on past business performance cycles, months + years
+<!-- Based on past business performance cycles, months + years -->
 
 ```{r, label="Next Month", eval = FALSE}
-# years on right, months on left?
-#
-nmonth_metric <- "Back Gross"
-
-estimates_for <- paste0(month(nmonth, abbr = FALSE, label = TRUE), ", ", year(nmonth))
-
-# last 2 months, last 2 years
-predate <- as.character(c(as.character(rev(month((nmonth) - months(1:2), label = TRUE, abbr = FALSE))), # last 2 months
-                          estimates_for,
-                          (year(nmonth) - 1):year((nmonth) - years(2)))) # last 2 years
-
-# group 2 insert for next month
-thismonthinsert <- list(group = 2, 
-                        tframe = estimates_for, 
-                        "Avg. Cash Price" = NULL,
-                        "Total Gross" = NULL, 
-                        "Back Gross" = NULL,
-                        "Front Gross" = NULL, 
-                        "New Sales" = NULL,
-                        "Used Sales" = NULL)
-
-# previous months + years for next month
-
-nmonth_df <- bind_rows(KDAc %>% # last 2 months
-                   dplyr::filter(date >= pmonth - months(1), date < pqmonth) %>%
-                   dplyr::mutate(group = 1, tframe = as.character(month(date, label = TRUE, abbr = FALSE))),
-                 KDAc %>% # last 2 years
-                   dplyr::filter(month(date) == month(pmonth) + 1, year(date) >= year(pmonth) - 2, date < pqmonth) %>%
-                   dplyr::mutate(group = 3, tframe = as.character(year(date)))) %>%
-  group_by(group, tframe) %>%
-  summarise(`Avg. Cash Price` = mean(cash_price, na.rm = TRUE),
-            `Total Gross` = sum(total_gross_profit, na.rm = TRUE),
-            `Back Gross` = sum(back_gross_profit, na.rm = TRUE),
-            `Front Gross` = sum(front_gross_profit, na.rm = TRUE),
-            `New Sales` = sum(ifelse(nu == "NEW", 1, 0)),
-            `Used Sales` = sum(ifelse(nu == "USED", 1, 0))) %>%
-  bind_rows(thismonthinsert) %>%
-  dplyr::mutate(tframe = factor(tframe, levels = predate, order = TRUE)) %>%
-  pivot_longer(cols = -any_of(c("group", "tframe")), names_to = "class", values_to = "value") %>%
-  group_by(group, class) %>%
-  dplyr::mutate(a = ifelse(group != 2, coef(lm(value ~ as.numeric(tframe)))[2], 0),
-                b = ifelse(group != 2, coef(lm(value ~ as.numeric(tframe)))[1], 0))
-
-if (!(nmonth_metric %in% nmonth_df$class)) {
-  warning("Enter a valid class")
-} 
-
-# prediction function
-predrectf <- function(facet) {
-  g1 <- predict(lm(value ~ as.numeric(tframe), data = nmonth_df, subset = (group == 1 & class == nmonth_metric)), list(tframe = 3))
-  g3 <- predict(lm(value ~ as.numeric(tframe), data = nmonth_df, subset = (group == 3 & class == nmonth_metric)), list(tframe = 3))
-  return(c(group1 = g1, group3 = g3))
-}
-
-# get bounding box
-predrect <- predrectf()
-
-nmonth_df %>%
-  filter(class == nmonth_metric) %>%
-  ggplot() + 
-  geom_point(aes(x = tframe, y = value, fill = factor(group), shape = factor(group)),
-             size = 5,
-             color = "black",
-             inherit.aes = FALSE) +
-  scale_shape_manual(values = c(25, 2, 22)) +
-  geom_abline(aes(slope = a, intercept = b, color = factor(group)),
-             lty = 2, size = 2) +
-  theme(axis.text.x = element_text(angle = 15),
-        legend.position = "none") +
-  geom_rect(aes(xmin = 2.8, xmax = 3.2, ymin = min(predrect), ymax = max(predrect)),  # should always be between 5.5 and 6.5
-            stat = "identity", 
-            data = nmonth_df %>%
-             filter(group == 2), 
-            inherit.aes = FALSE, 
-            alpha = 0.1,
-            color = "black") +
-  scale_y_continuous(labels = comma) + 
-  coord_cartesian(ylim = c(min(predrect) * 0.7, max(predrect) * 1.3)) +
-  labs(title = paste0(nmonth_metric, " Estimate for This Month"),
-       subtitle = paste0(month(repon, abbr = FALSE, label = TRUE), ", ", year(repon)),
-       x = "",
-       y = "Value")
+# # years on right, months on left?
+# #
+# nmonth_metric <- "Back Gross"
+# 
+# estimates_for <- paste0(month(nmonth, abbr = FALSE, label = TRUE), ", ", year(nmonth))
+# 
+# # last 2 months, last 2 years
+# predate <- as.character(c(as.character(rev(month((nmonth) - months(1:2), label = TRUE, abbr = FALSE))), # last 2 months
+#                           estimates_for,
+#                           (year(nmonth) - 1):year((nmonth) - years(2)))) # last 2 years
+# 
+# # group 2 insert for next month
+# thismonthinsert <- list(group = 2, 
+#                         tframe = estimates_for, 
+#                         "Avg. Cash Price" = NULL,
+#                         "Total Gross" = NULL, 
+#                         "Back Gross" = NULL,
+#                         "Front Gross" = NULL, 
+#                         "New Sales" = NULL,
+#                         "Used Sales" = NULL)
+# 
+# # previous months + years for next month
+# 
+# nmonth_df <- bind_rows(KDAc %>% # last 2 months
+#                    dplyr::filter(date >= pmonth - months(1), date < pqmonth) %>%
+#                    dplyr::mutate(group = 1, tframe = as.character(month(date, label = TRUE, abbr = FALSE))),
+#                  KDAc %>% # last 2 years
+#                    dplyr::filter(month(date) == month(pmonth) + 1, year(date) >= year(pmonth) - 2, date < pqmonth) %>%
+#                    dplyr::mutate(group = 3, tframe = as.character(year(date)))) %>%
+#   group_by(group, tframe) %>%
+#   summarise(`Avg. Cash Price` = mean(cash_price, na.rm = TRUE),
+#             `Total Gross` = sum(total_gross_profit, na.rm = TRUE),
+#             `Back Gross` = sum(back_gross_profit, na.rm = TRUE),
+#             `Front Gross` = sum(front_gross_profit, na.rm = TRUE),
+#             `New Sales` = sum(ifelse(nu == "NEW", 1, 0)),
+#             `Used Sales` = sum(ifelse(nu == "USED", 1, 0))) %>%
+#   bind_rows(thismonthinsert) %>%
+#   dplyr::mutate(tframe = factor(tframe, levels = predate, order = TRUE)) %>%
+#   pivot_longer(cols = -any_of(c("group", "tframe")), names_to = "class", values_to = "value") %>%
+#   group_by(group, class) %>%
+#   dplyr::mutate(a = ifelse(group != 2, coef(lm(value ~ as.numeric(tframe)))[2], 0),
+#                 b = ifelse(group != 2, coef(lm(value ~ as.numeric(tframe)))[1], 0))
+# 
+# if (!(nmonth_metric %in% nmonth_df$class)) {
+#   warning("Enter a valid class")
+# } 
+# 
+# # prediction function
+# predrectf <- function(facet) {
+#   g1 <- predict(lm(value ~ as.numeric(tframe), data = nmonth_df, subset = (group == 1 & class == nmonth_metric)), list(tframe = 3))
+#   g3 <- predict(lm(value ~ as.numeric(tframe), data = nmonth_df, subset = (group == 3 & class == nmonth_metric)), list(tframe = 3))
+#   return(c(group1 = g1, group3 = g3))
+# }
+# 
+# # get bounding box
+# predrect <- predrectf()
+# 
+# nmonth_df %>%
+#   filter(class == nmonth_metric) %>%
+#   ggplot() + 
+#   geom_point(aes(x = tframe, y = value, fill = factor(group), shape = factor(group)),
+#              size = 5,
+#              color = "black",
+#              inherit.aes = FALSE) +
+#   scale_shape_manual(values = c(25, 2, 22)) +
+#   geom_abline(aes(slope = a, intercept = b, color = factor(group)),
+#              lty = 2, size = 2) +
+#   theme(axis.text.x = element_text(angle = 15),
+#         legend.position = "none") +
+#   geom_rect(aes(xmin = 2.8, xmax = 3.2, ymin = min(predrect), ymax = max(predrect)),  # should always be between 5.5 and 6.5
+#             stat = "identity", 
+#             data = nmonth_df %>%
+#              filter(group == 2), 
+#             inherit.aes = FALSE, 
+#             alpha = 0.1,
+#             color = "black") +
+#   scale_y_continuous(labels = comma) + 
+#   coord_cartesian(ylim = c(min(predrect) * 0.7, max(predrect) * 1.3)) +
+#   labs(title = paste0(nmonth_metric, " Estimate for This Month"),
+#        subtitle = paste0(month(repon, abbr = FALSE, label = TRUE), ", ", year(repon)),
+#        x = "",
+#        y = "Value")
 ```
 
-# Predictions
+<!-- #### We have some NA's, or empty spaces, in the data. This could be for a -->
 
-```{r}
-# read in imaginary df(s)
+<!-- #### We can use logistic regression to tell us how much the NAs might influence -->
 
+<!-- the data longitudinally. This is probably unnecessary but I'm going to -->
+<!-- do it anyway. -->
 
-```
+<!-- #### Based on the models, we noticed a significant trend for all the metrics. -->
 
-```{r, label="Cumulative Tracker"}
+<!-- It shouldn't impact analysis too much because we didn't test numeric -->
+<!-- variables, but its something to keep in mind. -->
 
-```
+<!-- Generally, we saw more missing Front Gross Profit values and Cash Price -->
+<!-- values at the end of the data set, and we saw more missing values for -->
+<!-- Back Gross Profit and Total Gross Profit at the beginning of the data -->
+<!-- set. -->
 
-### 2. Summary statistics
+<!-- ### 3. Plotting -->
 
-```{r Summary}
-```
-
-#### We have some NA's, or empty spaces, in the data. This could be for a
-
-#### We can use logistic regression to tell us how much the NAs might influence
-
-the data longitudinally. This is probably unnecessary but I'm going to
-do it anyway.
-
-#### Based on the models, we noticed a significant trend for all the metrics.
-
-It shouldn't impact analysis too much because we didn't test numeric
-variables, but its something to keep in mind.
-
-Generally, we saw more missing Front Gross Profit values and Cash Price
-values at the end of the data set, and we saw more missing values for
-Back Gross Profit and Total Gross Profit at the beginning of the data
-set.
-
-### 3. Plotting
-
-#### Now, lets look at some quick plots of the data.
+<!-- #### Now, lets look at some quick plots of the data. -->
 
 ```{r}
 # ggplot(KDA1, aes(Date, Front_Gross_Profit)) + geom_point() + geom_smooth()
@@ -932,7 +1010,6 @@ set.
 # ggplot(KDA1, aes(Date, Cash_Price)) + geom_point() + geom_smooth()
 ```
 
-#### 
 
 ```{r}
 # ggplot(KDA1, aes(x = Date)) + geom_smooth(aes(y = Front_Gross_Profit, col = "front"), se = F) +
@@ -941,11 +1018,11 @@ set.
 #   geom_smooth(aes(y = .04*Cash_Price, col = "cash"), se = F) 
 ```
 
-#### If we hope to do anything with this, we will have to extract these trends.
+<!-- #### If we hope to do anything with this, we will have to extract these trends. -->
 
-To make this easier, lets create a new df for each day.
+<!-- To make this easier, lets create a new df for each day. -->
 
-### 4. Condensing
+<!-- ### 4. Condensing -->
 
 ```{r}
 # Day<- as.data.frame(seq(as.Date("2016-01-01"), as.Date("2020-11-16"), by="days"))
@@ -973,12 +1050,12 @@ To make this easier, lets create a new df for each day.
 # Day<-left_join(Day, temp, by = "Date")
 ```
 
-#### There are 1782 days, with 55 NAs in the mix. Most of them are probably within
+<!-- #### There are 1782 days, with 55 NAs in the mix. Most of them are probably within -->
 
-that stretch in April of 2019. We will fix them by imputation. First
-lets take a look at this new df, now with the number of sales per day
-[n]. The missing values will automatically be predicted using a simple
-linear model (loess).
+<!-- that stretch in April of 2019. We will fix them by imputation. First -->
+<!-- lets take a look at this new df, now with the number of sales per day -->
+<!-- [n]. The missing values will automatically be predicted using a simple -->
+<!-- linear model (loess). -->
 
 ```{r}
 # summary(Day)
@@ -996,17 +1073,17 @@ linear model (loess).
 #               se = F, method = 'loess') + ylab("")
 ```
 
-### 5. Imputation
+<!-- ### 5. Imputation -->
 
-#### I've chosen to impute the mssing values so we can get a complete df that we
+<!-- #### I've chosen to impute the mssing values so we can get a complete df that we -->
 
-can run through functions and expect a complete output. To do this, we
-can use a variety of methods. I've chosen to use predictive mean
-matching, which uses a kind of regression that builds relationships
-around the mean of each variable. Again, there are many ways to do this
-and this might not be the best one. First, we train the algorithm 20
-times [m = 20], and we get its best guess at what the missing values
-would be according to pmm. We can easily change the method later too.
+<!-- can run through functions and expect a complete output. To do this, we -->
+<!-- can use a variety of methods. I've chosen to use predictive mean -->
+<!-- matching, which uses a kind of regression that builds relationships -->
+<!-- around the mean of each variable. Again, there are many ways to do this -->
+<!-- and this might not be the best one. First, we train the algorithm 20 -->
+<!-- times [m = 20], and we get its best guess at what the missing values -->
+<!-- would be according to pmm. We can easily change the method later too. -->
 
 ```{r, include=FALSE}
 # m<-'pmm'
@@ -1027,13 +1104,6 @@ would be according to pmm. We can easily change the method later too.
 #               se = F, method = 'loess') + ylab("")
 ```
 
-#### Now, since we have data for each day, we can do some timeries analysis for
-
-all of our metrics. [freq = 365] because we have 365 observations per
-year. Remember here, these values are taken from the sum of that value
-every day. From, these plots, we really just need to pay attention to
-the trend.
-
 ```{r}
 # b<-decompose(ts(Day.full$sum.bgp, frequency =365))
 # plot(b) + title("Back Gross", line = -.5)
@@ -1046,10 +1116,6 @@ the trend.
 # n<-decompose(ts(Day.full$n, frequency =365))
 # plot(n) + title("N Sold", line =  -.5)
 ```
-
-#### Looks nice and informative. Now, lets make sure all our data is in the standard
-
-style so we can easily compare it to other economic trends.
 
 ```{r}
 #dummy for joining

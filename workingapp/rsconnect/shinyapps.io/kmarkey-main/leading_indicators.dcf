@@ -1,0 +1,12 @@
+name: leading_indicators
+title: leading_indicators
+username: kmarkey-main
+account: kmarkey-main
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 10279773
+bundleId: 7839767
+url: https://kmarkey-main.shinyapps.io/leading_indicators/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

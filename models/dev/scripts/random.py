@@ -30,14 +30,14 @@ class random_forest():
         self.targetvar = targetvar
         
         # empty model
-        model = Pipeline([
+        pipe = Pipeline([
             ('scaler', StandardScaler()),
             ('model', RandomForestRegressor(n_estimators=100, random_state = 1966))
             ])
         
         cv = KFold(n_splits=5, shuffle=True, random_state=1933)
         
-        model = GridSearchCV(model,
+        basemodel = GridSearchCV(pipe,
                               {'model__max_depth':np.arange(2, 10, 1),
                               'model__min_samples_leaf': [1, 2, 4, 6, 8]}, # at least 2
                               cv = cv,
@@ -69,7 +69,8 @@ class random_forest():
         X_train, X_test, y_train, y_test = simple_split(X, y, self.split)
         
         # fit the model
-        model = model.fit(X_train, y_train)
+        model = basemodel
+        model.fit(X_train, y_train)
         
         # feature selection step
         if self.feature_selection == True:
@@ -79,9 +80,8 @@ class random_forest():
                                               X_test, 
                                               y_test, 
                                               n_repeats=10, 
-                                              random_state=1933, 
-                                              n_jobs=-1)
-            
+                                              random_state=1933)
+                        
             self.feature_selection = list(X_test.columns[imps.importances_mean > np.mean(imps.importances_mean)])
             
 #             # save df of importances
@@ -92,7 +92,8 @@ class random_forest():
             X, y = get_xy()
             
             X_train, X_test, y_train, y_test = simple_split(X, y, self.split)
-        
+            
+            model = basemodel
             model.fit(X_train, y_train)
         
         # write hidden splits
@@ -105,6 +106,8 @@ class random_forest():
         self.model = model
         self.fnames = model.feature_names_in_
                 
+        fitting = True
+        
     def predict(self, ahead = 3):
 
         # Store the fitted values with the same time index as the training data

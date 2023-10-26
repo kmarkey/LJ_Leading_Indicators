@@ -22,6 +22,9 @@ file_list <- paste0(bucket_path, list.files(bucket_path))
 # for each file name
 for (x in file_list) {
   
+  if (file_list == bucket_path) {
+    break
+  }
   # # file to join with x
   # KDAt <- read_csv(whole_file_path, show_col_types = FALSE)
   # 

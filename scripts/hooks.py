@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import re
 from scripts.config import config_logger, close_logger
-from datetime import datetime as dt
+import datetime
 import time
 from alpha_vantage.timeseries import TimeSeries # AV
 import pandas_datareader as pdr # access fred
@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup
 
 class manager:
     
-    def __init__(self, data_class, keyname, search_lower = None, search_upper = None, keypath = "./keys/keys.txt", boundpath = "./keys/bounds.csv"):
+    def __init__(self, name_class, keyname, search_lower = None, search_upper = None, keypath = "./keys/keys.txt", boundpath = "./keys/bounds.csv"):
         
         self.log = config_logger()
         
@@ -31,11 +31,11 @@ class manager:
             
             self.search_upper = search_upper
         
-        self.data_class = data_class
+        self.name_class = name_class
         
-        self.data_path = os.path.join(os.getcwd(), "./data/in/{}.csv".format(self.data_class))
+        self.path = os.path.join(os.getcwd(), "./data/in/{}.csv".format(self.name_class))
         
-        self.exist = pd.read_csv(self.data_path)
+        self.exist = pd.read_csv(self.path)
         
     def __bounds_from_file__(self, boundpath):
         
@@ -95,23 +95,29 @@ class manager:
     # test to see if saved file can be reused
     def recyclable(self):
         
-        if (dt.strptime(self.search_lower, "%Y-%m-%d").month >= dt.strptime(self.exist["date"].min(), "%Y-%m-%d").month and
-            dt.strptime(self.search_lower, "%Y-%m-%d").year >= dt.strptime(self.exist["date"].min(), "%Y-%m-%d").year and
-            dt.strptime(self.search_upper, "%Y-%m-%d").month <= dt.strptime(self.exist["date"].max(), "%Y-%m-%d").month and
-            dt.strptime(self.search_upper, "%Y-%m-%d").year <= dt.strptime(self.exist["date"].max(), "%Y-%m-%d").year and
-            len(self.food) <= self.exist.shape[1] - 1):
-             
-            return True
-            
-        else:
+        try:
+            if (datetime.datetime.strptime(self.search_lower, "%Y-%m-%d").month >= datetime.datetime.strptime(str(self.exist["date"].min()), "%Y-%m-%d").month and
+                datetime.datetime.strptime(self.search_lower, "%Y-%m-%d").year >= datetime.datetime.strptime(str(self.exist["date"].min()), "%Y-%m-%d").year and
+                datetime.datetime.strptime(self.search_upper, "%Y-%m-%d").month <= datetime.datetime.strptime(str(self.exist["date"].max()), "%Y-%m-%d").month and
+                datetime.datetime.strptime(self.search_upper, "%Y-%m-%d").year <= datetime.datetime.strptime(str(self.exist["date"].max()), "%Y-%m-%d").year and
+                len(self.food) <= self.exist.shape[1] - 1):
+                 
+                return True
+                
+            else:
+                
+                return False
+        except:
+          
+            self.log.info("Existing {} file not read".format(self.name_class))
             
             return False
             
     def save_data(self, out):
         
-        out.to_csv(self.data_path, index = False)
+        out.to_csv(self.path, index = False)
         
-        self.log.info("".join(["{}.csv size: ".format(self.data_class), out.shape, ", saved!"]))
+        self.log.info("".join(["{}.csv size: ".format(self.name_class), out.shape, ", saved!"]))
         
         close_logger(self.log)
         
@@ -119,23 +125,22 @@ class manager:
         
     def save_info(self, info):
         
-        with open("./data/out/{}_info.json".format(self.data_class), "w") as outfile:
+        with open("./data/out/{}_info.json".format(self.name_class), "w") as outfile:
             
             json.dump(info, outfile)
             
-        self.log.info("".join(["{}_info.json saved!".format(self.data_class)]))
+        self.log.info("".join(["{}_info.json saved!".format(self.name_class)]))
         
         close_logger(self.log)
         
         return
 
-
 class stocks(manager):  
     
     #  set defaults for stocks
-    def __init__(self, search_lower = None, search_upper = None, keyname = "alphavantage_key", data_class = "stocks"):
+    def __init__(self, search_lower = None, search_upper = None, keyname = "alphavantage_key", name_class = "stocks"):
         
-        super().__init__(search_lower = search_lower, search_upper = search_upper, keyname = keyname, data_class = data_class)
+        super().__init__(search_lower = search_lower, search_upper = search_upper, keyname = keyname, name_class = name_class)
         
     def get_csv(self, stocklist, save = True):
       
@@ -143,7 +148,7 @@ class stocks(manager):
         
         if self.recyclable == True and save == False:
             
-            self.log.info("{name}.csv, size:{dim}, will be reused!".format(name = self.data_class, dim = self.exist.shape))
+            self.log.info("{name}.csv, size:{dim}, will be reused!".format(name = self.name_class, dim = self.exist.shape))
             
             # new self.data
             self.data = self.exist
@@ -152,7 +157,7 @@ class stocks(manager):
             
         if self.recyclable == True and save == True:
             
-            self.log.info("{name}.csv, size: {dim}, can be reused! Leaving {name}.csv untouched".format(name = self.data_class, dim = self.exist.shape))
+            self.log.info("{name}.csv, size: {dim}, can be reused! Leaving {name}.csv untouched".format(name = self.name_class, dim = self.exist.shape))
             
             self.data = self.exist
             
@@ -165,7 +170,7 @@ class stocks(manager):
                 # always date
                 try:
                     
-                    df['date'] = pd.to_datetime(df['date']).dt.to_period('M').dt.to_timestamp()
+                    df['date'] = pd.to_datetime(df['date']).datetime.datetime.to_period('M').datetime.datetime.to_timestamp()
                     
                     df = df.query('@self.search_lower <= `date` & `date` <= @self.search_upper')
                     
@@ -255,7 +260,7 @@ class stocks(manager):
                 
             code = s
             
-            updated = str(dt.now().strftime("%b %#d, %Y %#I:%M %p"))
+            updated = str(datetime.datetime.now().strftime("%b %#d, %Y %#I:%M %p"))
             
             try:
                 
@@ -270,7 +275,7 @@ class stocks(manager):
                 self.log.info("Could not find category for {}".format(s))
                 
             citation = "".join([name, ", [", code, "], ", "retrieved from Alpha Vantage Inc.", 
-                                ", ", str(dt.now().strftime("%b %#d, %Y")), "."])
+                                ", ", str(datetime.datetime.now().strftime("%b %#d, %Y")), "."])
             
             tdict[s] = {"name": name, "code": code, "updated": updated, "category": category, 
                         "citation": citation, "link": url}
@@ -298,9 +303,9 @@ class stocks(manager):
 
 class fred(manager):
     
-    def __init__(self, search_lower = None, search_upper = None, keyname = "fred_key", data_class = "fred"):
+    def __init__(self, search_lower = None, search_upper = None, keyname = "fred_key", name_class = "fred"):
         
-        super().__init__(search_lower = search_lower, search_upper = search_upper, keyname = keyname, data_class = data_class)
+        super().__init__(search_lower = search_lower, search_upper = search_upper, keyname = keyname, name_class = name_class)
         
     def get_csv(self, fredpairs, save = True):
         
@@ -312,7 +317,7 @@ class fred(manager):
         
         if self.recyclable == True and save == False:
             
-            self.log.info("{name}.csv, size:{dim}, will be reused!".format(name = self.data_class, dim = self.exist.shape))
+            self.log.info("{name}.csv, size:{dim}, will be reused!".format(name = self.name_class, dim = self.exist.shape))
             
             self.data = self.exist
             
@@ -320,7 +325,7 @@ class fred(manager):
         
         if self.recyclable == True and save == True:
             
-            self.log.info("{name}.csv, size: {dim}, can be reused! Leaving {name}.csv untouched".format(name = self.data_class, dim = self.exist.shape))
+            self.log.info("{name}.csv, size: {dim}, can be reused! Leaving {name}.csv untouched".format(name = self.name_class, dim = self.exist.shape))
             
             self.data = self.exist
             
@@ -330,7 +335,7 @@ class fred(manager):
           
             try:
                 
-                df = pdr.DataReader(self.food, self.data_class, self.search_lower, self.search_upper, api_key = self.key)
+                df = pdr.DataReader(self.food, self.name_class, self.search_lower, self.search_upper, api_key = self.key)
                 
                 out = (df.reset_index()
                         .rename({'DATE': 'date'}, axis = 'columns')
@@ -423,9 +428,9 @@ class fred(manager):
 
 class trends(manager):
     
-    def __init__(self, search_lower = None, search_upper = None, keyname = "google_usr", data_class = "trends"):
+    def __init__(self, search_lower = None, search_upper = None, keyname = "google_usr", name_class = "trends"):
         
-        super().__init__(search_lower = search_lower, search_upper = search_upper, keyname = keyname, data_class = data_class)
+        super().__init__(search_lower = search_lower, search_upper = search_upper, keyname = keyname, name_class = name_class)
         
     def get_csv(self, glist, save = True):
     
@@ -445,7 +450,7 @@ class trends(manager):
             
         if self.recyclable == True and save == False:
             
-            self.log.info("{name}.csv, size:{dim}, will be reused!".format(name = self.data_class, dim = self.exist.shape))
+            self.log.info("{name}.csv, size:{dim}, will be reused!".format(name = self.name_class, dim = self.exist.shape))
             
             self.data = self.exist
             
@@ -453,7 +458,7 @@ class trends(manager):
         
         if self.recyclable == True and save == True:
             
-            self.log.info("{name}.csv, size: {dim}, can be reused! Leaving {name}.csv untouched".format(name = self.data_class, dim = self.exist.shape))
+            self.log.info("{name}.csv, size: {dim}, can be reused! Leaving {name}.csv untouched".format(name = self.name_class, dim = self.exist.shape))
             
             self.data = self.exist
             
@@ -465,11 +470,10 @@ class trends(manager):
                 
                 for x in range(len(glist)):
                   
-                    keyword = [glist[x]]
+                    keyword = glist[x]
                     
-                    tob.build_payload(kw_list = keyword, cat = 0,
-                                      timeframe = " ".join([self.search_lower, self.search_upper]),
-                                      geo = 'US-WA-819')
+                    tob.build_payload(kw_list = [keyword], cat = 0,
+                                      timeframe = " ".join([self.search_lower, self.search_upper]))
                      
                     df = tob.interest_over_time()
                      
@@ -481,12 +485,13 @@ class trends(manager):
                         
                         self.log.debug("{} data recieved".format(glist[x]))
                         
-                    if df.empty:
+                    else:
                         
                         self.log.info("{} not found. Continuing.".format(glist[x]))
                         
                 break       
                 
+            # if above errors, run this
             except (ResponseError, requests.exceptions.Timeout):
                 
                 self.log.info("Google Trends request failed, opening https://trends.google.com/trends/?geo=US for cars")
@@ -535,12 +540,12 @@ class trends(manager):
                 
                 u = g.replace(" ", "%20")
                 
-                category = "Search term in US-WA-819"
+                category = "Search term in US"
                 
-                updated = str(dt.now().strftime("%b %#d, %Y %#I:%M %p"))
+                updated = str(datetime.datetime.now().strftime("%b %#d, %Y %#I:%M %p"))
                 
                 citation = "".join(["Google Trends", ", [", name, "], ", "retrieved from Google Trends", 
-                                    ", ", "https://www.google.com/trends", ", ", str(dt.now().strftime("%b %#d, %Y"))])
+                                    ", ", "https://www.google.com/trends", ", ", str(datetime.datetime.now().strftime("%b %#d, %Y"))])
                                     
                 link = "https://trends.google.com/trends/explore?q={}&geo=US-WA-819".format(u)
                 
@@ -551,9 +556,9 @@ class trends(manager):
                 self.log.exception("No info found for {}".format(g))
                 
         self.info = tdict
-                
+            
         if save == True:
-          
+            
             self.save_info(tdict)
                 
         else:
@@ -576,7 +581,7 @@ def collect_data(stocklist, fredpairs, glist, search_lower = None, search_upper 
     f.get_csv(fredpairs, save = save)
     
     t = trends(search_lower = search_lower, search_upper=search_upper)
-    t.get_csv(glist, save = save)
+    t.get_csv(glist, save = True)
     
 def collect_info(stocklist, fredpairs, glist, search_lower = None, search_upper = None, save = True):
   
@@ -588,3 +593,132 @@ def collect_info(stocklist, fredpairs, glist, search_lower = None, search_upper 
     
     t = trends(search_lower = search_lower, search_upper=search_upper)
     t.get_info(glist, save = save)
+
+
+# 
+# 
+# kw_list = glist[0]
+# 
+# tob.build_payload(kw_list = [keyword], cat = 0,
+#                   timeframe = " ".join(["2010-01-01", "2023-01-01"]),
+#                   geo = 'US-WA-819')
+#  
+# df = tob.interest_over_time()
+# 
+# import pandas as pd
+# from pytrends.request import TrendReq
+# 
+# pytrend = TrendReq(hl='en-US', tz=360, timeout=(10,25), retries=2, backoff_factor=0.1)
+# 
+# #pytrend = TrendReq(hl='en-US', tz=360)
+# 
+# # pytrend.build_payload(
+# #      kw_list= ["used cars"],
+# #      timeframe = " ".join(["2009-01-01", "2023-01-01"])
+# #      #geo='US-WA-819',
+# #      #gprop=''
+# #      )
+# #      
+# pytrend.build_payload(
+#      kw_list= ['used car near me'],
+#      timeframe = "2016-01-01 2023-01-01"
+#      )
+# 
+# 
+# data = pytrend.interest_over_time()
+# 
+# data[data['cars'] > 0]
+# 
+# 
+# 
+# 
+# 
+# for index, (kw, geo) in enumerate(product([kw_list], "US-WA-819")):
+#   print(index, kw, geo)
+#   
+# from itertools import product
+#   
+#   
+# 
+# from pytrends.exceptions import ResponseError, TooManyRequestsError, Timeout
+# import pytrends
+# import time
+# time.sleep(240)
+# 
+# pytrend = TrendReq()
+# 
+# #provide your search terms
+# kw_list=['Facebook']
+# 
+# #search interest per region
+# #run model for keywords (can also be competitors)
+# pytrend.build_payload(kw_list, timeframe='today 1-m')
+# 
+# # Interest by Region
+# regiondf = pytrend.interest_over_time()
+# 
+# 
+# 
+# 
+# full = pd.DataFrame()
+# trends_list = ['sunscreen']
+# for x in trends_list:
+#   
+#   # try a max of 2 times for each keyword
+#   n_retrys = 0
+#   while n_retrys < 2:
+#     
+#     try:
+#       pytrend.build_payload(
+#          kw_list= [x],
+#          cat = 0,
+#          timeframe = " ".join(["2009-01-01", "2023-01-01"]),
+#          gprop=''
+#          )
+#     
+#       data = pytrend.interest_over_time()
+#       
+#     except TooManyRequestsError:
+#       print("too many requests")
+#       
+#       time.sleep(60)
+#       
+#       # log.info("Too many requests")
+#     except: ResponseError:
+#       print("Unknown Response Error, skipping {}".format(x)):
+#     
+#       continue
+#     
+#     n_retrys += 1
+#     
+#   # allow no more than 3 0s
+#   if data.empty or (data == 0).sum()[x] > 3:
+#     
+#     print("Incomplete data for {}".format(x))
+#     continue
+#   
+#   else:
+#     data = data.drop(labels = ['isPartial'], axis = 'columns')
+#                         
+#     full.append(data)
+#     
+#     print("{} data recieved".format(glist[x]))
+#     
+#     
+# (data == 0).sum()['used cars']
+# 
+# data.empty
+# 
+# 
+# 
+# pytrend = TrendReq()
+# pytrend.build_payload(kw_list=['used car'], timeframe= " ".join(["2009-01-01", "2023-01-01"]), geo = 'US-WA-819')
+# 
+# # pytrend.build_payload(kw_list=['crust', 'dummy'], timeframe=['2022-09-04 2022-09-10', '2022-09-18 2022-09-24'], geo = 'US-WA-819')
+# time.sleep(60)
+# 
+# #get today's treniding topics
+# data = pytrend.interest_over_time()
+# 
+# #TooManyRequestsError
+# # use verbose=True for print output

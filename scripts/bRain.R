@@ -3,6 +3,7 @@
 
 # setup
 library(reticulate)
+
 renv::use_python("renv/python/virtualenvs/renv-python-3.10/Scripts/python.exe")
 
 # params
@@ -20,6 +21,7 @@ source("scripts/fishing.R")
 
 # fetch data if necessary
 reticulate::source_python("scripts/fetch.py")
+
 
 source("scripts/collage.R")
 

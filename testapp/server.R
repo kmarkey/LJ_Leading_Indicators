@@ -15,22 +15,6 @@ source("appData.R")
 ahead <- 6
 
 server <- function(input, output) {
-  # calculate values
-  # timeframe_f <- function(t) {
-  #   case_when(
-  #     t == "all_time" ~ as.Date(c(min(KDAc$date), max(KDAc$date))),
-  #     t == "past_5" ~ as.Date(c(
-  #       max(KDAc$date) - years(5), max(KDAc$date)
-  #     )),
-  #     t == "past_1" ~ as.Date(c(
-  #       max(KDAc$date) - years(1), max(KDAc$date)
-  #     )),
-  #     t == "past_6" ~ as.Date(c(
-  #       max(KDAc$date) - months(6, abbreviate = FALSE),
-  #       max(KDAc$date)
-  #     ))
-  #   )
-  # }
   
   output$plot_history <- renderPlotly({
     
@@ -652,6 +636,63 @@ server <- function(input, output) {
       
   }, filter = "top", escape = FALSE, options = list(paging = FALSE)) 
   
+  output$prediction <- renderPlotly({
+    
+    brot %>%
+      # add filters
+      # {if (show_models_list() == FALSE)
+      #   
+      #   dplyr::filter(., model == "actual")
+      #   
+      #   else 
+      #     
+      #     dplyr::filter(., model == "actual" | model %in% show_models_list())
+      #     
+      #   } %>%
+    
+    ggplot() + 
+      geom_line(aes(x = idx, y = actual), 
+                color = pal[1], linewidth = 1.5) + 
+      
+      {if (input$lasso_model)
+        geom_line(aes(x = idx, y = lasso),
+                color = pal[2], linewidth = 1.5) 
+        } +
+      
+      {if (input$tree_model)
+        geom_line(aes(x = idx, y = `decision tree`),
+                  color = pal[3], linewidth = 1.5) 
+      } +
+      
+      {if (input$random_model)
+        geom_line(aes(x = idx, y = `random forest`),
+                  color = pal[4], linewidth = 1.5) 
+      } +
+      
+      {if (input$arima_model)
+        geom_line(aes(x = idx, y = arima),
+                  color = pal[5], linewidth = 1.5) 
+      } +
+      
+      {if (input$gru_model)
+        geom_line(aes(x = idx, y = gru),
+                  color = pal[6], linewidth = 1.5) 
+      } +
+      
+      {if (input$lstm_model)
+        geom_line(aes(x = idx, y = lstm),
+                  color = pal[7], linewidth = 1.5) 
+      } +
+      
+      scale_color_manual(values = pal) +
+      
+      theme(axis.title.y = element_blank(),
+            axis.title.x = element_blank(),
+            legend.position = "none")
+    
+    
+  })
+  
   observeEvent(input$history, {
     if(input$history == "monthorder") {
       shinyjs::disable('resolution') 
@@ -659,4 +700,5 @@ server <- function(input, output) {
       shinyjs::enable('resolution')
     }
   }, ignoreNULL = T)
+  
 }

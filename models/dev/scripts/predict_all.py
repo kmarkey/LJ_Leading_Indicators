@@ -64,7 +64,8 @@ def run_predict(data = data, split = 129, ahead = 6, save = True, verbose = Fals
     a = arima()
     a.fit(data = data, 
           split = split,
-          feature_selection = True,order=(12, 1, 0)
+          feature_selection = True,
+          order=(12, 1, 0)
          )
     
     a.predict(ahead = ahead)
@@ -85,10 +86,12 @@ def run_predict(data = data, split = 129, ahead = 6, save = True, verbose = Fals
     # always overwrite folder
     from datetime import date
     import shutil
+    
     newpath = "models/" + branch + "/snapshots/" + str(date.today())
     
     if os.path.exists(newpath):
         shutil.rmtree(newpath)
+        
     os.makedirs(newpath)
         
     if save == True:

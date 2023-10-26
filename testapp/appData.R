@@ -7,7 +7,7 @@ tags$style(type="text/css",
            ".shiny-output-error:before { visibility: hidden; }"
 )
 
-
+# tags$style(type = "text/css")
 
 ## need to read in json of app options, including raw KDA, prediction and imp data, lag number, 
 
@@ -110,7 +110,7 @@ coyote <- left_join(cf, l, by = "name") %>%
   mutate(root = sub("_v$", "", key),
          lag = as.numeric(lag))
 
-
+########################### info dfs ###########################################
 # read in json  files
 library(rjson)
 
@@ -147,6 +147,28 @@ info_df <- rbind(get_info(stock_info),
 # join roots and amend names with volume
 complete_info <- left_join(coyote, info_df, by = c("root" = "key")) %>%
   mutate(name = ifelse(str_detect(key, "_v$"), str_c(name, " Volume"), name))
+
+
+################################# predictions ##################################
+file_list <- list.files("data/snapshots", pattern = "^[a-z].csv", full.names = TRUE)
+
+new_colnames <- c("idx" = "...1", 
+                  "actual" = "actual", 
+                  "group" = "group", 
+                  "arima" = "pred.x", 
+                  "gru" = "pred.y", 
+                  "lasso" = "pred.x.x", 
+                  "lstm" = "pred.y.y", 
+                  "random forest" = "pred.x.x.x", 
+                  "decision tree" = "pred.y.y.y")
+
+brot <-  purrr::map(file_list, read_csv, show_col_types = FALSE) %>%
+  # purrr::map_dfc(file_list, read_csv)
+  purrr::reduce(dplyr::left_join,
+                by = c("...1", "actual", "group"),
+                copy = FALSE) %>%
+  dplyr::rename(all_of(new_colnames))
+  # reorder and pivot cols
 
 
 # add in best lag and usage per model here

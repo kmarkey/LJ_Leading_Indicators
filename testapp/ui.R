@@ -23,6 +23,35 @@ source("appData.R")
 
 # inputs
 
+tags$style(HTML("
+      @import url('https://fonts.googleapis.com/css2?family=Yusei+Magic&display=swap');
+      body {
+        background-color: black;
+        color: white;
+      }
+      h2 {
+        font-family: 'Yusei Magic', sans-serif;
+      }
+      .span.bootstrap-switch {
+        color: red;
+      }"))
+
+
+#switchInput color while on
+#switchInput color while on
+tags$head(tags$style(HTML('.bootstrap-switch .bootstrap-switch-handle-off.bootstrap-switch-on,
+                                       .bootstrap-switch .bootstrap-switch-handle-on.bootstrap-switch-on {
+                                        background: --bs-green;
+                                        color: --bs-white;
+                                        }')))
+
+#switchInput color while off
+tags$head(tags$style(HTML('.bootstrap-switch .bootstrap-switch-handle-off.bootstrap-switch-off,
+                                       .bootstrap-switch .bootstrap-switch-handle-on.bootstrap-switch-off {
+                                        background: --bs-red;
+                                        color: --bs-black;
+                                        }')))
+
 month_select <- selectInput(
   "month_select",
   "Select Month:",
@@ -158,8 +187,56 @@ features_filter <- switchInput(
   value = FALSE
 )
 
+lasso_switch <- switchInput(
+  inputId = "lasso_model",
+  label = "Linear",
+  value = FALSE,
+  onStatus = "on",
+  offStatus = "off"
+)
+
+tree_switch <- switchInput(
+  "tree_model",
+  "Decision Tree",
+  value = FALSE,
+  onStatus = "on",
+  offStatus = "off"
+)
+
+random_switch <- switchInput(
+  "random_model",
+  "Random Forest",
+  value = FALSE,
+  onStatus = "on",
+  offStatus = "off"
+)
+
+arima_switch <- switchInput(
+  "arima_model",
+  "ARIMA",
+  value = FALSE,
+  onStatus = "on",
+  offStatus = "off"
+)
+
+gru_switch <- switchInput(
+  "gru_model",
+  "GRU",
+  value = FALSE,
+  onStatus = "on",
+  offStatus = "off"
+)
+
+lstm_switch <- switchInput(
+  "lstm_model",
+  "LSTM",
+  value = FALSE,
+  onStatus = "on",
+  offStatus = "off"
+)
+
 ui <- page_navbar(
-  title = "LJ Leading Indicators",
+  title = "Leading Indicators",
   id  = "root",
   fluid = TRUE,
   
@@ -194,23 +271,19 @@ ui <- page_navbar(
           value =
             "monthorder",
           shinyjs::useShinyjs(),
-          tags$head(
-            tags$style(
-              type = "text/css",
-              "#inline label{ display: table-cell; text-align: right; vertical-align: middle; }
-                #inline .form-group { display: table-row;}"
-            )
-          ),
+          # tags$head(
+          #   tags$style(
+          #     type = "text/css",
+          #     #"{ display: table-cell; text-align: right; vertical-align: middle; }
+          #     #".form-group { display: table-row; }"
+          #   )
+          # ),
 
           card(
-                card_body(padding = c("20px", "30px"), 
-                          height = "100px", 
-                          fillable = FALSE,
-                  fluidRow(
-                                      "Showing", n_months, " months and ", n_years, "years"
-                    )
-                ),
-            
+            fluidRow("Showing", n_months, " months and ", n_years, "years")
+            ),
+          
+          card(
             plotlyOutput("plot_last_year")
           )
         )
@@ -226,6 +299,7 @@ ui <- page_navbar(
         value = "biggest-movers",
         card(full_screen = TRUE,
              plotlyOutput("plot_movers")),
+        
         sidebar = sidebar(
           month_select,
           purchase_lease_movers,
@@ -239,8 +313,6 @@ ui <- page_navbar(
   ),
   
   # personnel
-  
-  # salesman
   
   # make these value boxes!!!
   nav_panel(
@@ -299,7 +371,26 @@ ui <- page_navbar(
   nav_panel(
     title = "Prediction",
     value = "prediction",
-    icon = icon("cubes-stacked")
+    icon = icon("cubes-stacked"),
+    
+    tags$head(
+      tags$style(
+        type = "text/css",
+        "#inline label{ display: table-cell; text-align: right; vertical-align: middle; }
+                #inline .form-group { display: table-row;}"
+      )
+    ),
+    
+    layout_sidebar(
+      card(full_screen = TRUE,
+           plotlyOutput("prediction")),
+      sidebar = sidebar(lasso_switch,
+                        tree_switch,
+                        random_switch,
+                        arima_switch,
+                        gru_switch,
+                        lstm_switch)
+    )
   ),
   
   nav_spacer(),
@@ -317,9 +408,5 @@ ui <- page_navbar(
     ),
     
     # link to form for maintenance
-    nav_item(
-      tags$a(icon("envelope"), "Maintenance Request", href = "https://forms.gle/mbG3dKhh5m1gZs176")
-    )
   )
 )
-  
