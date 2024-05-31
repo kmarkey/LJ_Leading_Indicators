@@ -1,4 +1,6 @@
 #! /usr/bin/Rscript
+
+# after new data is read, records some params in json and sets up dfs for fill and join
 #===============================================================================
 
 library(dplyr)
@@ -9,11 +11,12 @@ library(logger)
 library(here)
 library(rlang)
 
-source("scripts/utilities.R")
+if (!exists("utilities_loaded"))
+  source("./scripts/r_utilities.R")
 
 log_setup()
 
-log_info("Running fishing.R")
+log_info("Running scribe")
 
 # read in month_all?
 if (!exists("month_all")) {
@@ -26,7 +29,7 @@ if (!exists("month_all")) {
 
 #=========================== set wolf var ======================================
 
-# Feb is the last full month
+# deprecated splitting
 covid_cutoff <- ceiling_date(as.Date("2020-03-26") - months(1), unit = "month") - 1
 
 dreq_cutoff <- as.Date("2015-12-31")
@@ -75,22 +78,19 @@ search_bottom <- min(wolf$date) - years(1) # from month
 # expect full most recent month
 search_top <- ceiling_date(max(wolf$date), unit = "month") - 1
 
-log_info("Setting search lbound to {search_bottom} ubound to {search_top}")
-
-# obsolete right now
-lead_bottom <- search_top - years(1) # not using right now
-
-lead_top <- search_top # 3 months ahead
-
-# write out
-boundlist <- tibble(search_bottom = search_bottom,
-                    search_top = search_top,
-                    lead_bottom = lead_bottom,
-                    lead_top = lead_top,
-                    targetvar = targetvar) 
+log_info("Set lower search bound to {search_bottom} upper search bound to {search_top}")
 
 # blank df for feature prep
 blank_m <- tibble(date = seq.Date(from = search_bottom, to = search_top, by = "month"))
+
+rundata <- list(date = Sys.Date(),
+             targetvar = targetvar,
+             ahead = ahead,
+             cor_max = cor_max,
+             search_bottom = search_bottom,
+             search_top = search_top)
+
+jsonlite::write_json(rundata, paste0("./logs/", Sys.Date(), "/params.log"))
 
 log_trace("Search bounds and blank_m saved!")
 

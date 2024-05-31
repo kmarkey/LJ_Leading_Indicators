@@ -13,15 +13,13 @@ train_set <- "all" # data subset being used
 targetvar <-  "n" # variable of interest
 bloat <- FALSE # favor wide over long feature data
 
-
 # version of KDAc??
 source("scripts/transform.R")
 
-source("scripts/fishing.R")
+source("scripts/scribe.R")
 
 # fetch data if necessary
 reticulate::source_python("scripts/fetch.py")
-
 
 source("scripts/collage.R")
 

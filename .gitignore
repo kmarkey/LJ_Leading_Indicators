@@ -6,6 +6,7 @@
 *.Rdata
 *.Rapp.history
 *.RDataTmp
+*.Rprofile
 *.Rhistory
 
 # Other file types

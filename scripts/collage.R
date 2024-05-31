@@ -9,7 +9,7 @@ library(tibble)
 library(stringr)
 library(lubridate)
 
-if(!exists("utilities_loaded")) source("./scripts/utilities.R")
+if(!exists("utilities_loaded")) source("./scripts/r_utilities.R")
 
 log_setup()
 
@@ -43,9 +43,7 @@ temp <- read_csv("./data/in/stocks.csv",
 
 stocks <- temp %>%
   
-  trim_it("stocks") %>%
-  
-  lag_it()
+  trim_it("stocks")
 
 log_trace("Reading stock data")
 
@@ -63,9 +61,7 @@ temp <- read_csv("./data/in/fred.csv",
 
 fred <- temp %>%
     
-    trim_it("fred") %>%
-    
-    lag_it()
+    trim_it("fred")
 
 log_trace("Reading in FRED data")
 
@@ -83,9 +79,7 @@ temp <- read_csv("./data/in/trends.csv",
 
 trends <- temp %>%
     
-    trim_it("trends") %>% # arranges high to low
-    
-    lag_it()
+    trim_it("trends")
 
 log_trace("Reading Google Trends data")
 
@@ -111,25 +105,26 @@ supp_ext <- tibble(dum = rep(max(blank_m$date), ahead)) %>%
                 year = year(date))
 
 log_trace("Including all supplemental data")
+
 #=============================== website views + users =========================
                           # downloaded right now  #
                           # changed to GA4        #
                           # working on update     #
 
-website <- read_csv("./data/in/website.csv", skip = 5, show_col_types = FALSE)
-
-website <- website %>%
-    
-    dplyr::transmute(date = as.Date("2013-04-01") + months(as.numeric(`Month Index`), abbreviate = FALSE),
-                     new_users = `New Users`,
-                     session_dur = as.numeric(`Avg. Session Duration`)/60) %>%# time in minutes
-    
-    trim_it("website") %>%
-    
-    lag_it() %>%
+# website <- read_csv("./data/in/website.csv", skip = 5, show_col_types = FALSE)
+# 
+# website <- website %>%
+#     
+#     dplyr::transmute(date = as.Date("2013-04-01") + months(as.numeric(`Month Index`), abbreviate = FALSE),
+#                      new_users = `New Users`,
+#                      session_dur = as.numeric(`Avg. Session Duration`)/60) %>% # time in minutes
+#     
+#     trim_it("website") %>%
+#     
+#     lag_it() %>%
   
     # if NA, to 0
-    replace(is.na(.), 0)
+#     replace(is.na(.), 0)
 
 #================================= appointments? ===============================
                             # Get appt data  #
@@ -147,14 +142,13 @@ scaling <- function(x) { # normalization function, but scale in python
 }
 
 
-
 complete_dirty <- dplyr::select(wolf, date, !!targetvar) %>%
     
     # econ
-    left_join(fred, by = "date") %>%
+    left_join(stocks, by = "date") %>%
     
     # stocks
-    left_join(stocks, by = "date") %>%
+    left_join(fred, by = "date") %>%
     
     # google results
     left_join(trends, by = "date") %>%
@@ -176,8 +170,7 @@ if(sum(is.na(complete_dirty)) != 0) {
     log_info("{sum(is.na(complete_dirty))} missing values in complete_dirty")
   
 }
-
-#============================ wide cor filter ==================================
+# =============================== correlation ==================================
 
 log_trace("Doing correlations")
 
@@ -187,6 +180,16 @@ complete_cor <- complete_dirty %>%
     
     cor(use = "complete.obs")
 
+library(car)
+
+simpmod <- lm(n ~ ., data = complete_dirty %>% select(-date) %>% mutate(across(everything(), ~scaling(.))))
+
+vif(simpmod)
+
+complete_dirty
+library(corrplot)
+
+corrplot.mixed(complete_cor)
 # save feature correlations
 cor_frame <- complete_cor %>%
   as.data.frame() %>%
@@ -203,7 +206,7 @@ feature_dict <- as.data.frame(complete_cor) %>%
   
   rownames_to_column("name") %>%
   
-  # lag must be 3+ and keep seasonal vars
+  # lag must be 3+ and keep seasonal (supplemental) vars
   dplyr::filter(
     as.numeric(stringr::str_remove(name, ".*_lag")) >= ahead | !grepl(".*_lag", name)) %>%
   

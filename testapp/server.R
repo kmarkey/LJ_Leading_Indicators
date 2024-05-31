@@ -612,75 +612,62 @@ server <- function(input, output) {
         updated,
         key,
         lag,
-        correlation,
-        lasso,
-        `decision tree`,
-        `random forest`,
-        gru,
-        lstm,
+        Correlation,
+        LASSO,
+        `Decision Tree`,
+        `Random Forest`,
+        GRU,
+        LSTM,
         -link
       ) %>%
     
       {
         if (input$features_filter == FALSE)
           
-        dplyr::filter(., !is.na(complete_info$`lasso`), lag >= ahead)
+        dplyr::filter(., !is.na(complete_info$`LASSO`), lag >= ahead)
         
         else .
           
           
-      } %>%
-      
-    
-      dplyr::rename_with(~str_to_title(.))
+      }
       
   }, filter = "top", escape = FALSE, options = list(paging = FALSE)) 
   
   output$prediction <- renderPlotly({
     
     brot %>%
-      # add filters
-      # {if (show_models_list() == FALSE)
-      #   
-      #   dplyr::filter(., model == "actual")
-      #   
-      #   else 
-      #     
-      #     dplyr::filter(., model == "actual" | model %in% show_models_list())
-      #     
-      #   } %>%
     
     ggplot() + 
       geom_line(aes(x = idx, y = actual), 
                 color = pal[1], linewidth = 1.5) + 
       
       {if (input$lasso_model)
-        geom_line(aes(x = idx, y = lasso),
+        geom_line(aes(x = idx, y = LASSO),
                 color = pal[2], linewidth = 1.5) 
         } +
       
       {if (input$tree_model)
-        geom_line(aes(x = idx, y = `decision tree`),
+        geom_line(aes(x = idx, y = `Decision Tree`),
                   color = pal[3], linewidth = 1.5) 
       } +
       
       {if (input$random_model)
-        geom_line(aes(x = idx, y = `random forest`),
+        geom_line(aes(x = idx, y = `Random Forest`),
                   color = pal[4], linewidth = 1.5) 
       } +
       
       {if (input$arima_model)
-        geom_line(aes(x = idx, y = arima),
+        geom_line(aes(x = idx, y = ARIMA),
                   color = pal[5], linewidth = 1.5) 
       } +
       
       {if (input$gru_model)
-        geom_line(aes(x = idx, y = gru),
+        geom_line(aes(x = idx, y = GRU),
                   color = pal[6], linewidth = 1.5) 
       } +
       
       {if (input$lstm_model)
-        geom_line(aes(x = idx, y = lstm),
+        geom_line(aes(x = idx, y = LSTM),
                   color = pal[7], linewidth = 1.5) 
       } +
       
@@ -692,6 +679,37 @@ server <- function(input, output) {
     
     
   })
+  
+  output$prediction_eval <- DT::renderDT({
+    
+    brot %>%
+      group_by(group) %>%
+      dplyr::transmute(across(ARIMA:`Decision Tree`, .fns = list(
+        mse = ~ mean((actual - .x) ^ 2),
+        r2 = ~ cor(actual, .x) ^ 2
+      ))) %>%
+      unique() %>%
+      column_to_rownames("group") %>%
+      
+      {
+        if (input$eval_score == TRUE)
+          dplyr::select(., ends_with("mse"))
+        
+        else
+          dplyr::select(., ends_with("r2"))
+      } %>%
+      
+      t() %>%
+      
+      as.data.frame() %>%
+      
+      rownames_to_column("temp") %>%
+      
+      dplyr::mutate(temp = gsub("_.*", "", temp)) %>%
+      
+      column_to_rownames("temp")
+      
+  }, options = list(paging = FALSE))
   
   observeEvent(input$history, {
     if(input$history == "monthorder") {

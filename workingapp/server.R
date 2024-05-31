@@ -654,6 +654,8 @@ server <- function(input, output) {
       geom_line(aes(x = idx, y = actual), 
                 color = pal[1], linewidth = 1.5) + 
       
+      # geom_rect(aes(xmin = 0, xmax = 100, ymin = 0, ymax = 400), color = "blue") +
+    
       {if (input$lasso_model)
         geom_line(aes(x = idx, y = lasso),
                   color = pal[2], linewidth = 1.5) 
@@ -686,10 +688,12 @@ server <- function(input, output) {
       
       scale_color_manual(values = pal) +
       
+      # scale_x_continuous(breaks = ~) +
+      # scale_x_date( date_breaks = "1 year", labels = ~format(., "%Y"), date_minor_breaks = "1 month", name = "") + 
+    
       theme(axis.title.y = element_blank(),
             axis.title.x = element_blank(),
             legend.position = "none")
-    
     
   })
   

@@ -12,7 +12,8 @@ library(readxl)
 
 #============================== read cargs and log =============================
 
-if(!exists("utilities_loaded")) source("./scripts/utilities.R")
+if (!exists("utilities_loaded"))
+  source("./scripts/r_utilities.R")
 
 log_setup()
 

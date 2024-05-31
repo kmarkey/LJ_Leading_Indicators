@@ -18,6 +18,7 @@ KDAc <- read_csv("data/KDAc.csv", show_col_types = FALSE)
 # generated on
 today <- Sys.Date()
 
+fmonth <- floor_date(min(KDAc$date), unit = "month")
 # last month
 lmonth <-
   floor_date(floor_date(today, unit = "month") - 1, unit = "month")
@@ -66,8 +67,6 @@ month_bounds <- function(string) {
 #read in indicidual files
 
 # snapshot
-snapshot <- "2023-09-22"
-
 cf <- read_csv("data/snapshots/corr_frame.csv",
                col_names = c("name", "correlation"),
                skip = 1,
@@ -124,7 +123,7 @@ fred_info <- fromJSON(file = "data/fred_info.json")
 
 trend_info <- fromJSON(file = "data/trends_info.json")
 
-# parse Json fun
+# parse Json func
 get_info <- function(data) {
   
   df <- data.frame()
@@ -168,11 +167,13 @@ new_colnames <- c("idx" = "...1",
                   "decision tree" = "pred.y.y.y")
 
 brot <-  purrr::map(file_list, read_csv, show_col_types = FALSE) %>%
-  # purrr::map_dfc(file_list, read_csv)
-  purrr::reduce(dplyr::left_join,
+
+    purrr::reduce(dplyr::left_join,
                 by = c("...1", "actual", "group"),
                 copy = FALSE) %>%
-  dplyr::rename(all_of(new_colnames))
+  
+    dplyr::rename(all_of(new_colnames)) %>%
+  dplyr::mutate(date = pmonth + months(idx - max(idx)) + months(ahead))
 
 
 # add in best lag and usage per model here

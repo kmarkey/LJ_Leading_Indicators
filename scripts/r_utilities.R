@@ -191,7 +191,7 @@ trim_it <- function(data, name, ruler = blank_m) {
 # setup log
 log_setup <- function(loglevel = "INFO") {
   
-  my_logfile <- paste0("./logs/my_log_", Sys.Date(), ".log")
+  my_logfile <- paste0("./logs/", Sys.Date(), "/log.log")
   
   logger::log_threshold(loglevel)
   
@@ -200,10 +200,17 @@ log_setup <- function(loglevel = "INFO") {
     log_appender(appender_tee(my_logfile))
     
   } else {
+    dir.create(paste0("./logs/", Sys.Date()))
+    
     file.create(my_logfile)
     
     log_appender(appender_tee(my_logfile))
     
     print(paste0("Log created at ", my_logfile))
   }
+}
+
+load_key <- function(keyname) {
+  
+  
 }

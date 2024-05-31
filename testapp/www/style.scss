@@ -1,0 +1,53 @@
+/*@import url('https://fonts.googleapis.com/css2?family=Yusei+Magic&display=swap');
+*/
+
+/*Add in default colors here*/
+
+/* Change header text to imported font */
+
+/*Swithces*/
+
+/*
+.bootstrap-switch-handle-on {
+  background-color: #b00b69;
+}*/
+
+.span .bootstrap-switch-handle-arima .bootstrap-switch-primary {
+  background-color: #b00b69;
+}
+
+.bootstrap-switch .bootstrap-switch-handle-arima {
+  background-color: #b00b69;
+}
+
+.bootstrap-switch .bootstrap-switch-handle-arima.bootstrap-switch-primary, .bootstrap-switch .bootstrap-switch-handle-off.bootstrap-switch-primary {
+  background-color: #b00b69;
+}
+
+/* Moving objects */
+
+/* hovering on plots */
+.js-plotly-plot .plotly .cursor-crosshair {
+    cursor: pointer;
+}
+
+.row {
+  width: 100%; // center the content of the container
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+  align-items: baseline;
+}
+
+
+/* Make text visible on inputs */
+.shiny-input-container {
+  color: #474747
+  ;
+}
+/*sass::sass("
+  $primary: red !default; // First one wins
+  $primary: blue !default;
+  $progress-bar-bg: $primary !default;
+  @debug $primary, $progress-bar-bg;
+")*/

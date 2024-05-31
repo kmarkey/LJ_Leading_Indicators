@@ -65,32 +65,32 @@ month_bounds <- function(string) {
 
 #read in indicidual files
 cf <- read_csv("data/snapshots/corr_frame.csv",
-               col_names = c("name", "correlation"),
+               col_names = c("name", "Correlation"),
                skip = 1,
                col_types = c("cd"))
 
 l <- read_csv("data/snapshots/l-imp.csv",
-              col_names = c("idx", "lasso", "name"),
+              col_names = c("idx", "LASSO", "name"),
               skip = 1,
               col_types = c("idc"))
 
 t <- read_csv("data/snapshots/t-imp.csv",
-              col_names = c("idx", "decision tree", "name"),
+              col_names = c("idx", "Decision Tree", "name"),
               skip = 1,
               col_types = c("idc"))
 
 r <- read_csv("data/snapshots/r-imp.csv",
-              col_names = c("idx", "random forest", "name"),
+              col_names = c("idx", "Random Forest", "name"),
               skip = 1,
               col_types = c("idc"))
 
 g <- read_csv("data/snapshots/g-imp.csv",
-              col_names = c("idx", "gru", "name"),
+              col_names = c("idx", "GRU", "name"),
               skip = 1,
               col_types = c("idc"))
 
 m <- read_csv("data/snapshots/m-imp.csv",
-              col_names = c("idx", "lstm", "name"),
+              col_names = c("idx", "LSTM", "name"),
               skip = 1,
               col_types = c("idc"))
 
@@ -147,7 +147,7 @@ info_df <- rbind(get_info(stock_info),
 # join roots and amend names with volume
 complete_info <- left_join(coyote, info_df, by = c("root" = "key")) %>%
   mutate(name = ifelse(str_detect(key, "_v$"), str_c(name, " Volume"), name))
-
+complete_info
 
 ################################# predictions ##################################
 file_list <- list.files("data/snapshots", pattern = "^[a-z].csv", full.names = TRUE)
@@ -155,20 +155,21 @@ file_list <- list.files("data/snapshots", pattern = "^[a-z].csv", full.names = T
 new_colnames <- c("idx" = "...1", 
                   "actual" = "actual", 
                   "group" = "group", 
-                  "arima" = "pred.x", 
-                  "gru" = "pred.y", 
-                  "lasso" = "pred.x.x", 
-                  "lstm" = "pred.y.y", 
-                  "random forest" = "pred.x.x.x", 
-                  "decision tree" = "pred.y.y.y")
+                  "ARIMA" = "pred.x", 
+                  "GRU" = "pred.y", 
+                  "LASSO" = "pred.x.x", 
+                  "LSTM" = "pred.y.y", 
+                  "Random Forest" = "pred.x.x.x", 
+                  "Decision Tree" = "pred.y.y.y")
 
 brot <-  purrr::map(file_list, read_csv, show_col_types = FALSE) %>%
   # purrr::map_dfc(file_list, read_csv)
   purrr::reduce(dplyr::left_join,
                 by = c("...1", "actual", "group"),
                 copy = FALSE) %>%
-  dplyr::rename(all_of(new_colnames))
-  # reorder and pivot cols
-
+  dplyr::rename(all_of(new_colnames)) %>%
+  relocate(idx, actual, group)
+  
+  # reorder and pivot cols?
 
 # add in best lag and usage per model here

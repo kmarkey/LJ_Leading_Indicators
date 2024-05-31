@@ -18,28 +18,30 @@ editor_options:
     wrap: 72
 ---
 
-```{r setup}
-library(here)
-library(ggplot2)
-library(stringr)
-library(lubridate)
-library(dplyr)
-library(logger)
-library(here)
-library(scales)
-library(tidyr)
-library(readr)
+```{r setup, echo = FALSE}
+# library(here)
+# library(ggplot2)
+# library(stringr)
+# library(lubridate)
+# library(dplyr)
+# library(logger)
+# library(here)
+# library(scales)
+# library(tidyr)
+# library(readr)
 ```
 
-# Introduction:
+# Introduction
 
 ### Project Aim:
 
-Find external indicators that provide reliable insight into previous
-business performance of LJ, and use those indicators to predict future
+To find external indicators that provide reliable insight into
+business performance for a local car dealership, and leverage those indicators to predict future
 business performance.
 
-### Project Overview:
+The findings of this project have been compiled into a web application. A demo is available at the link below.
+
+<button name="button" onclick="https://kmarkey-main.shinyapps.io/testapp/">Demo app</button>
 
 # Methods:
 
@@ -147,176 +149,176 @@ After its first training pass, this model selects the top 10-20 most important f
 
 A Long-Short-Term Memory is a deep neural network that is well-suited to the problem of time-series prediction. This is the most complex model used in this project. Being a bit larger than a GRU, this model was also throttled to reduce risks associated with using overfitted models. 
 
-This model uses all selected features and does not perform its own feature selection. 
+This model uses all selected features and does not perform its own feature selection.
 
 # Results
 
-```{r}
-library(plotly)
-
-# list 
-file_list <- list.files("models/dev/snapshots/2023-10-19", pattern = "^[a-z].csv", full.names = TRUE)
-
-new_colnames <- c("idx" = "...1", 
-                    "actual" = "actual", 
-                    "group" = "group", 
-                    "arima" = "pred.x", 
-                    "gru" = "pred.y", 
-                    "lasso" = "pred.x.x", 
-                    "lstm" = "pred.y.y", 
-                    "random forest" = "pred.x.x.x", 
-                    "decision tree" = "pred.y.y.y")
-
-brot <-  purrr::map(file_list, read_csv) %>%
-  # purrr::map_dfc(file_list, read_csv)
-  purrr::reduce(dplyr::left_join,
-                by = c("...1", "actual", "group"),
-                copy = FALSE) %>%
-  dplyr::rename(new_colnames) %>%
-  # reorder and pivot cols
-  pivot_longer(
-    cols = c(
-      "actual",
-      "lasso",
-      "decision tree",
-      "random forest",
-      "arima",
-      "gru",
-      "lstm"
-    ),
-    names_to = "model",
-    values_to = "value"
-  )
-  
-# ?purrr::map
-# str_extract(file_list, pattern = "[a-z](?=.csv)")
+```{r, echo=FALSE}
+# library(plotly)
 # 
-# l <- read_csv("models/dev/snapshots/2023-09-22/l.csv",
-#               col_names = c("idx", "actual", "lasso", "group"),
-#               show_col_types = FALSE)
+# # list 
+# file_list <- list.files("models/dev/snapshots/2023-10-19", pattern = "^[a-z].csv", full.names = TRUE)
 # 
-# t <- read_csv("models/dev/snapshots/2023-09-22/t.csv", 
-#               col_names = c("idx", "actual", "decision tree", "group"),
-#               show_col_types = FALSE)
+# new_colnames <- c("idx" = "...1", 
+#                     "actual" = "actual", 
+#                     "group" = "group", 
+#                     "arima" = "pred.x", 
+#                     "gru" = "pred.y", 
+#                     "lasso" = "pred.x.x", 
+#                     "lstm" = "pred.y.y", 
+#                     "random forest" = "pred.x.x.x", 
+#                     "decision tree" = "pred.y.y.y")
 # 
-# r <- read_csv("models/dev/snapshots/2023-09-22/r.csv",
-#               col_names = c("idx", "actual", "random forest", "group"),
-#               show_col_types = FALSE)
-# 
-# a <- read_csv("models/dev/snapshots/2023-09-22/a.csv", 
-#               col_names = c("idx", "actual", "arima", "group"),
-#               show_col_types = FALSE)
-# 
-# g <- read_csv("models/dev/snapshots/2023-09-22/g.csv", 
-#               col_names = c("idx", "actual", "gru", "group"),
-#               show_col_types = FALSE)
-# 
-# m <- read_csv("models/dev/snapshots/2023-09-22/m.csv",
-#               col_names = c("idx", "actual", "lstm", "group"),
-#               show_col_types = FALSE)
-# 
-# coyote <- l %>%
+# brot <-  purrr::map(file_list, read_csv) %>%
+#   # purrr::map_dfc(file_list, read_csv)
+#   purrr::reduce(dplyr::left_join,
+#                 by = c("...1", "actual", "group"),
+#                 copy = FALSE) %>%
+#   dplyr::rename(new_colnames) %>%
+#   # reorder and pivot cols
+#   pivot_longer(
+#     cols = c(
+#       "actual",
+#       "lasso",
+#       "decision tree",
+#       "random forest",
+#       "arima",
+#       "gru",
+#       "lstm"
+#     ),
+#     names_to = "model",
+#     values_to = "value"
+#   )
 #   
-#   left_join(t, by = c("idx", "actual", "group"), keep = FALSE) %>%
-#   left_join(r, by = c("idx", "actual", "group"), keep = FALSE) %>%
-#   left_join(a, by = c("idx", "actual", "group"), keep = FALSE) %>%
-#   left_join(g, by = c("idx", "actual", "group"), keep = FALSE) %>%
-#   left_join(m, by = c("idx", "actual", "group"), keep = FALSE) %>%
-#   
-#   dplyr::filter(row_number() != 1) %>%
-#   
-#   pivot_longer(cols = c("actual", "lasso", "decision tree", "random forest", "arima", "gru", "lstm"), 
-#                names_to = "model", 
-#                values_to = "value")
-
-p <- ggplot(brot) + 
-  geom_line(aes(x = idx, y = as.numeric(value), group = model, color = model)) + 
-  geom_vline(aes(xintercept = 129)) +
-  scale_color_discrete()
-
-ggplotly(p)
+# # ?purrr::map
+# # str_extract(file_list, pattern = "[a-z](?=.csv)")
+# # 
+# # l <- read_csv("models/dev/snapshots/2023-09-22/l.csv",
+# #               col_names = c("idx", "actual", "lasso", "group"),
+# #               show_col_types = FALSE)
+# # 
+# # t <- read_csv("models/dev/snapshots/2023-09-22/t.csv", 
+# #               col_names = c("idx", "actual", "decision tree", "group"),
+# #               show_col_types = FALSE)
+# # 
+# # r <- read_csv("models/dev/snapshots/2023-09-22/r.csv",
+# #               col_names = c("idx", "actual", "random forest", "group"),
+# #               show_col_types = FALSE)
+# # 
+# # a <- read_csv("models/dev/snapshots/2023-09-22/a.csv", 
+# #               col_names = c("idx", "actual", "arima", "group"),
+# #               show_col_types = FALSE)
+# # 
+# # g <- read_csv("models/dev/snapshots/2023-09-22/g.csv", 
+# #               col_names = c("idx", "actual", "gru", "group"),
+# #               show_col_types = FALSE)
+# # 
+# # m <- read_csv("models/dev/snapshots/2023-09-22/m.csv",
+# #               col_names = c("idx", "actual", "lstm", "group"),
+# #               show_col_types = FALSE)
+# # 
+# # coyote <- l %>%
+# #   
+# #   left_join(t, by = c("idx", "actual", "group"), keep = FALSE) %>%
+# #   left_join(r, by = c("idx", "actual", "group"), keep = FALSE) %>%
+# #   left_join(a, by = c("idx", "actual", "group"), keep = FALSE) %>%
+# #   left_join(g, by = c("idx", "actual", "group"), keep = FALSE) %>%
+# #   left_join(m, by = c("idx", "actual", "group"), keep = FALSE) %>%
+# #   
+# #   dplyr::filter(row_number() != 1) %>%
+# #   
+# #   pivot_longer(cols = c("actual", "lasso", "decision tree", "random forest", "arima", "gru", "lstm"), 
+# #                names_to = "model", 
+# #                values_to = "value")
+# 
+# p <- ggplot(brot) + 
+#   geom_line(aes(x = idx, y = as.numeric(value), group = model, color = model)) + 
+#   geom_vline(aes(xintercept = 129)) +
+#   scale_color_discrete()
+# 
+# ggplotly(p)
+# ```
 ```
-
 ## Leading Indicators
 
 As discussed, its important to remember that leading indicators are identified by a few methods ranging in interpretability and usability. In general, leading indicators that are identified by simpler, interpretable methods like a correlation coefficient aren't necessarily as important in predicting business performance. The inverse is also true: leading indicators that are highly important to a model such as the LSTM may not be well-understood or useful to people outside of its importance to the model.
 
 Below is a table of all candidates and their importance with respect to each model.
 
-```{r}
-# list 
-cf <- read_csv("data/out/corr_frame.csv", show_col_types = FALSE, col_names = c("name", "correlation"), skip = 1)
-
-l <- read_csv("models/dev/snapshots/2023-09-22/l-imp.csv",
-              col_names = c("idx", "lasso", "name"), 
-              show_col_types = FALSE)
-
-t <- read_csv("models/dev/snapshots/2023-09-22/t-imp.csv", 
-              col_names = c("idx", "decision tree", "name"),
-              show_col_types = FALSE)
-
-r <- read_csv("models/dev/snapshots/2023-09-22/r-imp.csv", 
-              col_names = c("idx", "random forest", "name"),
-              show_col_types = FALSE)
-
-g <- read_csv("models/dev/snapshots/2023-09-22/g-imp.csv", 
-              col_names = c("idx", "gru", "name"),
-              show_col_types = FALSE)
-
-m <- read_csv("models/dev/snapshots/2023-09-22/m-imp.csv", 
-              col_names = c("idx", "lstm", "name"),
-              show_col_types = FALSE)
-
-# join all
-coyote <- left_join(cf, l, by = "name") %>%
-  left_join(t, by = "name") %>%
-  left_join(r, by = "name") %>%
-  left_join(g, by = "name") %>%
-  left_join(m, by = "name") %>%
-  dplyr::select(-starts_with("idx")) %>%
-  
-  # split out name to root and lag
-  separate(col = name,
-           into = c("key", "lag"),
-           sep = "_lag") %>%
-  
-  mutate(lag = as.numeric(lag))
-
-
-# read in json  files
-library(rjson)
-
-stock_info <- fromJSON(file = "data/out/stocks_info.json")
-
-fred_info <- fromJSON(file = "data/out/fred_info.json")
-
-trend_info <- fromJSON(file = "data/out/trends_info.json")
-
-get_info <- function(data) {
-
-df <- data.frame()
-
-    for (i in names(data)){
-    
-        for (j in data[i]) {
-            r <- c(key = i, unlist(j))
-            }
-        df <- rbind(df, r)
-    }
-    
-    names(df) <- c("key", names(data[[1]]))
-    
-    return(df)
-}
-
-info_df <- rbind(get_info(stock_info),
-                 get_info(fred_info),
-                 get_info(trend_info)) %>%
-    dplyr::summarise(name, key, category, updated, `citation`, link)
-
- # add in best lag and usage per model here
-
-complete_info <- left_join(coyote, info_df, by = "key")
+```{r, echo=FALSE}
+# # list 
+# cf <- read_csv("data/out/corr_frame.csv", show_col_types = FALSE, col_names = c("name", "correlation"), skip = 1)
+# 
+# l <- read_csv("models/dev/snapshots/2023-09-22/l-imp.csv",
+#               col_names = c("idx", "lasso", "name"), 
+#               show_col_types = FALSE)
+# 
+# t <- read_csv("models/dev/snapshots/2023-09-22/t-imp.csv", 
+#               col_names = c("idx", "decision tree", "name"),
+#               show_col_types = FALSE)
+# 
+# r <- read_csv("models/dev/snapshots/2023-09-22/r-imp.csv", 
+#               col_names = c("idx", "random forest", "name"),
+#               show_col_types = FALSE)
+# 
+# g <- read_csv("models/dev/snapshots/2023-09-22/g-imp.csv", 
+#               col_names = c("idx", "gru", "name"),
+#               show_col_types = FALSE)
+# 
+# m <- read_csv("models/dev/snapshots/2023-09-22/m-imp.csv", 
+#               col_names = c("idx", "lstm", "name"),
+#               show_col_types = FALSE)
+# 
+# # join all
+# coyote <- left_join(cf, l, by = "name") %>%
+#   left_join(t, by = "name") %>%
+#   left_join(r, by = "name") %>%
+#   left_join(g, by = "name") %>%
+#   left_join(m, by = "name") %>%
+#   dplyr::select(-starts_with("idx")) %>%
+#   
+#   # split out name to root and lag
+#   separate(col = name,
+#            into = c("key", "lag"),
+#            sep = "_lag") %>%
+#   
+#   mutate(lag = as.numeric(lag))
+# 
+# 
+# # read in json  files
+# library(rjson)
+# 
+# stock_info <- fromJSON(file = "data/out/stocks_info.json")
+# 
+# fred_info <- fromJSON(file = "data/out/fred_info.json")
+# 
+# trend_info <- fromJSON(file = "data/out/trends_info.json")
+# 
+# get_info <- function(data) {
+# 
+# df <- data.frame()
+# 
+#     for (i in names(data)){
+#     
+#         for (j in data[i]) {
+#             r <- c(key = i, unlist(j))
+#             }
+#         df <- rbind(df, r)
+#     }
+#     
+#     names(df) <- c("key", names(data[[1]]))
+#     
+#     return(df)
+# }
+# 
+# info_df <- rbind(get_info(stock_info),
+#                  get_info(fred_info),
+#                  get_info(trend_info)) %>%
+#     dplyr::summarise(name, key, category, updated, `citation`, link)
+# 
+#  # add in best lag and usage per model here
+# 
+# complete_info <- left_join(coyote, info_df, by = "key")
 ```
 
 # Discussion
@@ -361,543 +363,141 @@ The challenge with trying to predict business performance during this time is th
 
 Generally, two metrics were used to evaluate the prediction models: mean-squared error ($MSE$) and coefficient of determination (${R^2}$).
 
-
-
 While many candidates were not included in the prediction phase, either due to collection irregularities or feature selection, they still might be useful in interpreting business performance. It is not correct to say that these candidates aren't important at all, but we can say that they are likely less important than the chosen leading indicators
 
+# Additional Notes on Indicators
 
-# Figure Appendix
+While this project aimed to consider many data sources, some were found to be redundant.
 
-# Indicator Index
+For example, some manufacturing data in stock closures from Lear Corp (LEA) and BorgWarner Inc (BWA) were dropped due to high correlation with General Motors stock data. Ford and AutoNation stock closures were also highly correlated.
 
-```{r, label="Set Bounds", include=FALSE, echo = FALSE}
-
-KDAc <- read_csv("data/sour/KDAc.csv")
-here()
-
-# generated on
-today <- Sys.Date()
-
-# last month
-lmonth <- floor_date(floor_date(today, unit = "month") - 1, unit = "month")
-
-# bounds of 2nd to last month on record
-nmonth <- floor_date(floor_date(max(KDAc$date), unit = "month") - 1, unit = "month")
-nomonth <- ceiling_date(nmonth, unit = "month") - 1
-
-# bounds of last month on record
-pmonth <- nomonth + 1
-pqmonth <- ceiling_date(pmonth, unit = "month") - 1
-
-# report would be made on the 1st of
-repon <- pqmonth + 1
-
-# report is for the month of
-repfor <- paste0(month(pqmonth, label = TRUE, abbr = FALSE), ", ", year(pqmonth))
-```
+In addition, light vehicle sales and total vehicle sales from the U.S. Bureau of Economic Analysis were prefectly correlated.
+At this stage, variable selection was performed automatically and checked for continuity.
 
 ```{r theme set, include = FALSE, echo = FALSE}
-pal <- c("#f6aa1c","#08415c","#6b818c","#eee5e9","#ba7ba1","#c28cae","#a52a2a")
-
-blue <- "#114482"
-lightblue <- "#146ff8"
-llightblue <- "#AFCFFF"
-red <- "#a52a2a"
-white <- "#FBFFF1"
-yellow <- "#F6AA1C"
-green <- "#588157"
-
-ljtheme <- function(){
-    theme_minimal() %+replace%
-    theme(
-      panel.grid.major = element_line(linetype = "solid", color = llightblue, linewidth = 0.1),
-      panel.grid.minor = element_blank(),
-      panel.background = element_rect(fill = white), #light
-      panel.border = element_rect(color = lightblue, fill = NA, linetype = "solid", linewidth = 2),
-      legend.background = element_rect(fill = white, color = lightblue, linewidth = 1), # legend
-      legend.text = element_text(color = blue),
-      legend.title = element_text(face = "bold.italic", color = blue),
-      legend.position = "bottom",
-      legend.key = element_rect(fill = white),
-      
-      
-      strip.text.x = element_text(size = 12, color = white, face = "bold.italic"),
-      strip.text.y = element_text(size = 12, color = white, face = "bold.italic"),
-      text = element_text(color = white),
-      axis.title = element_text(face = "italic", size = 11, color = white), 
-      axis.text = element_text(color = white, size = 9), 
-      axis.ticks = element_line(color = white, linewidth = .5, lineend = "butt"), 
-      axis.ticks.length = unit(.1, "cm"),
-      plot.title = element_text(face = "bold", # labels
-                              color = white, size = 14, hjust = 0, vjust = 1.5),
-      plot.subtitle = element_text(color = white, hjust = 0, vjust = 1.5, face = "italic"),
-      plot.caption = element_text(color = white, face = "bold"),
-      plot.background = element_rect(fill = blue)
-    )
-}
-
-# A function factory for getting integer y-axis values.
-integer_breaks <- function(n = 5, ...) {
-  fxn <- function(x) {
-    breaks <- floor(pretty(x, n, ...))
-    names(breaks) <- attr(breaks, "labels")
-    breaks
-  }
-  return(fxn)
-}
-
-theme_set(ljtheme())
+# pal <- c("#f6aa1c","#08415c","#6b818c","#eee5e9","#ba7ba1","#c28cae","#a52a2a")
+# 
+# blue <- "#114482"
+# lightblue <- "#146ff8"
+# llightblue <- "#AFCFFF"
+# red <- "#a52a2a"
+# white <- "#FBFFF1"
+# yellow <- "#F6AA1C"
+# green <- "#588157"
+# 
+# ljtheme <- function(){
+#     theme_minimal() %+replace%
+#     theme(
+#       panel.grid.major = element_line(linetype = "solid", color = llightblue, linewidth = 0.1),
+#       panel.grid.minor = element_blank(),
+#       panel.background = element_rect(fill = white), #light
+#       panel.border = element_rect(color = lightblue, fill = NA, linetype = "solid", linewidth = 2),
+#       legend.background = element_rect(fill = white, color = lightblue, linewidth = 1), # legend
+#       legend.text = element_text(color = blue),
+#       legend.title = element_text(face = "bold.italic", color = blue),
+#       legend.position = "bottom",
+#       legend.key = element_rect(fill = white),
+#       
+#       
+#       strip.text.x = element_text(size = 12, color = white, face = "bold.italic"),
+#       strip.text.y = element_text(size = 12, color = white, face = "bold.italic"),
+#       text = element_text(color = white),
+#       axis.title = element_text(face = "italic", size = 11, color = white), 
+#       axis.text = element_text(color = white, size = 9), 
+#       axis.ticks = element_line(color = white, linewidth = .5, lineend = "butt"), 
+#       axis.ticks.length = unit(.1, "cm"),
+#       plot.title = element_text(face = "bold", # labels
+#                               color = white, size = 14, hjust = 0, vjust = 1.5),
+#       plot.subtitle = element_text(color = white, hjust = 0, vjust = 1.5, face = "italic"),
+#       plot.caption = element_text(color = white, face = "bold"),
+#       plot.background = element_rect(fill = blue)
+#     )
+# }
+# 
+# # A function factory for getting integer y-axis values.
+# integer_breaks <- function(n = 5, ...) {
+#   fxn <- function(x) {
+#     breaks <- floor(pretty(x, n, ...))
+#     names(breaks) <- attr(breaks, "labels")
+#     breaks
+#   }
+#   return(fxn)
+# }
+# 
+# theme_set(ljtheme())
+# ```
+# 
+# 
+# ```{r}
+# data <- KDAc %>%
+# 
+#   dplyr::filter(date >= pmonth, date <= pqmonth) %>%
+#   
+#   group_by(salesman) %>%
+#   
+#   # metric
+#   {
+#     if (salesman_metric == "number_of_sales")
+#       
+#       dplyr::summarise(., metric = n())
+#     
+#     else
+#       
+#       dplyr::summarise(., metric = mean(get(salesman_metric), na.rm = TRUE))
+#   } %>%
+#   
+#   distinct() %>%
+#   
+#   slice_max(n = salesman.n,
+#             order_by = metric)
+# 
+# 
+# data
+# # plotting
+# data %>%
+#   ggplot() + geom_bar(aes(x = reorder(salesman, metric),
+#                           y = metric),
+#                       stat = "identity") +
+#   
+#   {
+#     if (salesman_metric == "number_of_sales")
+#       geom_label(aes(
+#         x = salesman,
+#         y = metric,
+#         label = paste0(salesman, "\n", round(metric, digits = 0))
+#       ),
+#       size = 3)
+#     
+#     else
+#       geom_label(
+#         aes(
+#         x = salesman,
+#         y = metric,
+#         label = paste0(salesman, "\n$", scales::comma(round(metric, digits = 0)))
+#       ),
+#       size = 3)
+#   } +
+#   # geom_label(aes(x = salesman,
+#   #                y = get(salesman_metric),
+#   #                label = paste0(salesman, "\n", scales::comma(round(get(salesman_metric), digits = 0)))),
+#   #            size = 3) +
+#   
+#   labs(y = "",
+#        x = "") +
+#   
+#   scale_y_continuous(expand = expansion(mult = c(-0.3, 0.1)),
+#                      breaks = integer_breaks()) +
+#   
+#   theme(axis.text.x = element_blank(),
+#         axis.ticks.x = element_blank())
 ```
 
-## 1. Finding the Features
-
-After processing sales data, all external indicators are fetched from
-the following sources and API packages monthly:
-
--   Quandl
--   AlphaVantage
-    -   with the alpha_vantage library
--   Google Trends
-    -   with modifications to the pytrends library
--   St. Louis Federal Reserve
-
-A full list of candidates, as well as which predictions they support,
-can be found in the Feature Appendix.
-
-Each indicator is lagged at 3, 6, 9,and 12 month intervals to create
-multiple candidates. Each candidate is evaluated for correlation to the
-target metric. Any candidate that does not meet the correlation
-threshold is eliminated as the first pass of feature selection.
-
-Features are further selected for each model independently in the
-following ways:
-
--   Linear Regression
-
-    -   Each remaining feature is passed through a Lasso regularization
-        process, which selects features based on the efficacy of linear
-        models that contain them using 5-fold cross-validation.
-
--   Decision Tree
-
-    -   Regularization is applied after training when the tree is pruned
-        at a depth optimized by 5-fold cross-validation.
-
--   
-
-    ## Random Forest
-
-```{r}
-
-# 6 months
-# 1 yr
-# 5 yr
-# all time
-
-new_used <- "NEW"
-purchase_lease <- "L"
-metric <- "n"
-group <- "weekly" # day, quarter and year?
-
-group_unit <- function(group) {
-  if (group == "daily") {
-    return("day")
-  } else return(substr(group, 1, nchar(group) - 2))
-}
-
-data <- KDAc %>%
-
-    {if (new_used != "BOTH")
-        
-        dplyr::filter(., nu == new_used) # this and last month
-      else .
-        } %>%
-    
-    {if (purchase_lease != "BOTH")
-        
-        dplyr::filter(., pl == purchase_lease)
-      else .
-      } %>%
-  
-  group_by(!!group := floor_date(date, group_unit(!!group))) %>%
-        
-  {if (metric == "n")
-    dplyr::summarise(., n = n(), date)
-    else
-      dplyr::summarise(., !!metric := mean(get(metric), na.rm = TRUE), date)}
-  
-data %>%
-  ggplot() +
-      geom_line(aes(x = get(group), y = get(metric)), color = blue, linewidth = 2) +
-      geom_point(aes(x = get(group), y = get(metric)), color = blue, size = 1.5) +
-      geom_line(aes(x = get(group), y = get(metric)), color = lightblue, linewidth = .5) +
-
-
-
-  
-  labs(x = "",
-       y = paste0(metric))
-
-```
-
-```{r new.used movers}
-#### rolling average
-#https://stackoverflow.com/questions/33769770/use-rollapply-and-zoo-to-calculate-rolling-average-of-a-column-of-variables
-
-# Change in sales for the 5 most common vehicles new/used
-
-# don't really care about latency, we can dynamically create plots based on parameters
-
-new_used <- "NEW"
-movers_n <- 10
-
-# biggest movers from last month ??
-
-movers <- KDAc %>%
-  
-  {if (new_used != "BOTH")
-    dplyr::filter(., nu == new_used, date >= nmonth, date <= pqmonth) # this and last month
-    else 
-      dplyr::filter(., date >= nmonth, date <= pqmonth)
-  } %>%
-  
-  {if (new_used == "USED") 
-    dplyr::mutate(., carname = str_c(make, " ", model), .keep = 'unused')
-    else # Only by model, not by year
-      dplyr::mutate(., carname = str_c(make, " ", model, " ", caryear), .keep = 'unused')} %>%
-  
-  dplyr::group_by(carname, month = ifelse(month(date) == month(pqmonth), "current", "last")) %>% # change month names
-  
-  dplyr::summarise(n = n()) %>%
-  
-  pivot_wider(id_cols = "carname", names_from = "month", values_from = "n", values_fill = 0) %>%
-  
-  dplyr::mutate(change = current - last) %>%
-  ungroup() %>%
-  slice_max(n = movers_n, order_by = abs(change), with_ties = FALSE)
-
-movers %>%
-  
-  ggplot() + 
-  
-  geom_segment(aes(x = reorder(carname, change), y = last, xend = carname, yend = current, color = change > 0),
-               linewidth = 10, lineend = "round") +
-  
-  geom_point(aes(x = carname, y = current), color = "black", alpha = 0.2, size  = 10) +
-
-  
-  geom_segment(aes(x = reorder(carname, change), y = ifelse(change > 0, current + 2, current - 2), xend = carname, yend = last),
-               color = "white",
-               linewidth = 1.1, lineend = "round", linejoin = "bevel",
-               arrow = arrow(length = unit(0.15, "in"), ends = "first")) +
-  
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-        legend.position = "none") +
-  
-  scale_color_manual(values = c(red, green)) +
-  
-  labs(title = paste0("Biggest Movers This Month (", new_used, ")"),
-       subtitle = repfor,
-       x = "",
-       y = "Change In Sales")
-
-```
-
-```{r Last 6 Months Sales}
-# n.months must be less than as.numeric(month(pmonth, abbr = FALSE, label = FALSE))
-n.months <- 3
-
-years <- 7
-
-metric <- "n"
-
-metric_dict <- c(
-  n = "Total Sales",
-  front_gross_profit = "Avg. Front Gross Profit",
-  back_gross_profit = "Avg. Back Gross Profit",
-  total_gross_profit = "Avg. Total Gross Profit",
-  cash_price = "Avg. Cash Price"
-)
-
-mlabs <- function(x) {
-  paste0(month(
-    pmonth - months(as.numeric(x)),
-    label = TRUE,
-    abbr = FALSE
-  ))
-}
-
-month(pmonth)
-
-# group by distance from current month
-mgroups <- KDAc %>%
-  
-  dplyr::mutate(mgroup = factor(month(pmonth) - month(date), ordered = TRUE),
-                theyear = year(date)) %>%
-  
-  group_by(mgroup, theyear) %>%
-  
-  {
-    if (metric == "n")
-      summarise(., y = n(), mgroup, theyear)
-    else
-      summarise(., y = mean(get(metric), na.rm = TRUE), mgroup, theyear)
-  } %>%
-  
-  distinct() %>%
-  
-  dplyr::filter(theyear >= year(pmonth) - years + 1,
-                as.numeric(as.character(mgroup)) >= 0 && as.numeric(as.character(mgroup)) <= n.months - 1)
-
-mgroups
-
-ggplot() +
-  geom_col(
-    data = mgroups,
-    aes(
-      x = rev(mgroup),
-      y = y,
-      group = theyear,
-      fill = theyear
-    ),
-    width = 0.8,
-    position = 'dodge',
-  ) +
-  
-  geom_text(
-    data = mgroups,
-    aes(
-      x = rev(mgroup),
-      y = 0,
-      group = theyear,
-      label = theyear, 
-      color = y < 5 
-    ),
-    position = position_dodge(width = 0.8),
-    angle = 90,
-    hjust = -0.1
-  ) +
-
-  scale_x_discrete(labels = mlabs, limits = rev) +
-  
-  scale_y_continuous(labels = comma) +
-  
-  scale_color_manual(values = c("white", "black")) +
-  
-  labs(y = '',
-       x = '') +
-  theme(legend.position = 'none')
-
-```
-
-Compare this month to other years
-
-```{r, label="This Month's Rank Among Other Years"}
-calmonth <- KDAc %>%
-  dplyr::filter(month(date) == month(pmonth), year(date) <= year(pmonth)) %>%
-  group_by(theyear = year(date)) %>%
-  dplyr::transmute(`Avg. Cash Price` = mean(cash_price, na.rm = TRUE),
-                   `Total Gross` = sum(total_gross_profit, na.rm = TRUE),
-                   `Back Gross` = sum(back_gross_profit, na.rm = TRUE),
-                   `Front Gross` = sum(front_gross_profit, na.rm = TRUE),
-                   `New Sales` = sum(ifelse(nu == "NEW", 1, 0)),
-                   `Used Sales` = sum(ifelse(nu == "USED", 1, 0)),
-                   ) %>%
-  distinct() %>%
-  
-  pivot_longer(!theyear, names_to = "name", values_to = "value") %>%
-  group_by(name = factor(name, levels = c("Total Gross", # ordered
-                                          "Back Gross",
-                                          "Front Gross",
-                                          "Avg. Cash Price",
-                                          "New Sales",
-                                          "Used Sales"), ordered = TRUE)) %>%
-  
-  mutate(ranks = order(order(value, decreasing = TRUE)), # actual ranks
-         rankval = rank(value)) # numeric bar chart value
-
-ggplot(calmonth) +
-  geom_bar(aes(x = theyear, y = rankval, fill = rankval),  stat = "identity") + 
-  facet_wrap(~name) +
-  geom_text(aes(x = theyear, y = rankval/2, label = ranks), color = white) +
-  scale_fill_gradient2(midpoint = 3, low = red, mid = llightblue,
-                     high = blue) +
-  labs(title = paste0("Ranking ", repfor),
-       subtitle = paste0("Compared to other '", month(pmonth, label = TRUE, abbr = FALSE), "'s"),
-       x = '',
-       y = '') +
-  theme(legend.position = "none",
-        axis.text.y = element_blank(),
-        axis.ticks.y = element_blank())
-```
-
-```{r, label="People"}
-# best salesman by avg cash price? avg fgp? n sales? for this month
-
-salesman_metric <- "number_of_sales" # button!
-
-salesman.n <- 5
-
-salesman_metric_dict <-
-  c(n = "Total Sales", fgp_a = "Avg. Front Gross Profit", cp_a = "Avg. Cash Price")
-
-salespeople <- KDAc %>%
-  dplyr::filter(date >= pmonth, date <= pqmonth) %>%
-  group_by(salesman) %>%
-  dplyr::transmute(
-    cp_a = mean(cash_price, na.rm = TRUE),
-    fgp_a = mean(front_gross_profit, na.rm = TRUE),
-    n = n(),
-    salesman
-  ) %>%
-  distinct() %>%
-  ungroup() %>%
-  slice_max(n = salesman.n, order_by = get(salesman_metric))
-
-salespeople %>%
-  ggplot() + geom_bar(aes(x = reorder(salesman, get(salesman_metric)),
-                          y = get(salesman_metric)),
-                      stat = "identity", fill = lightblue) +
-  {
-    if (salesman_metric == "n")
-      geom_label(aes(
-        x = salesman,
-        y = get(salesman_metric),
-        label = paste0(salesman, "\n", round(get(salesman_metric), digits = 0))
-      ),
-      size = 3)
-  } +
-  {
-    if (salesman_metric != "n")
-      geom_label(aes(
-        x = salesman,
-        y = get(salesman_metric),
-        label = paste0(salesman, "\n$", scales::comma(round(
-          get(salesman_metric), digits = 0
-        )))
-      ),
-      size = 3)
-  } +
-  # geom_label(aes(x = salesman,
-  #                y = get(salesman_metric),
-  #                label = paste0(salesman, "\n", scales::comma(round(get(salesman_metric), digits = 0)))),
-  #            size = 3) +
-  
-  labs(
-    title = paste("Top Salesman By", salesman_metric_dict[salesman_metric]),
-    subtitle = repfor,
-    y = salesman_metric_dict[salesman_metric],
-    x = ""
-  ) +
-  scale_y_continuous(expand = expansion(mult = c(-0.5, 0.05)),
-                     breaks = integer_breaks()) +
-  theme(axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
-  
-# best fi manager by back gross?
-
-fi.n <- 5
-
-fipeople <- KDAc %>%
-  dplyr::filter(date >= pmonth, date <= pqmonth) %>%
-  group_by(fimanager) %>%
-  dplyr::transmute(bgp_a = mean(back_gross_profit, na.rm = TRUE), fimanager) %>%
-  distinct() %>%
-  ungroup() %>%
-  slice_max(n = fi.n, order_by = bgp_a)
-
-fipeople %>%
-  ggplot() + geom_bar(aes(x = reorder(fimanager, bgp_a),
-                          y = bgp_a),
-                      stat = "identity", fill = lightblue) +
-  geom_label(aes(
-    x = fimanager,
-    y = bgp_a,
-    label = paste0(fimanager, "\n $", scales::comma(round(bgp_a, digits = 0)))
-  ),
-  size = 3) +
-  
-  labs(
-    title = paste("Top Finance Manager By Avg. Back Gross Profit"),
-    subtitle = repfor,
-    y = "Back Gross Profit",
-    x = ""
-  ) +
-  scale_y_continuous(expand = expansion(mult = c(-0.5, 0.05)),
-                     labels = comma) +
-  theme(axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
-```
-
-```{r}
-data <- KDAc %>%
-
-  dplyr::filter(date >= pmonth, date <= pqmonth) %>%
-  
-  group_by(salesman) %>%
-  
-  # metric
-  {
-    if (salesman_metric == "number_of_sales")
-      
-      dplyr::summarise(., metric = n())
-    
-    else
-      
-      dplyr::summarise(., metric = mean(get(salesman_metric), na.rm = TRUE))
-  } %>%
-  
-  distinct() %>%
-  
-  slice_max(n = salesman.n,
-            order_by = metric)
-
-
-data
-# plotting
-data %>%
-  ggplot() + geom_bar(aes(x = reorder(salesman, metric),
-                          y = metric),
-                      stat = "identity") +
-  
-  {
-    if (salesman_metric == "number_of_sales")
-      geom_label(aes(
-        x = salesman,
-        y = metric,
-        label = paste0(salesman, "\n", round(metric, digits = 0))
-      ),
-      size = 3)
-    
-    else
-      geom_label(
-        aes(
-        x = salesman,
-        y = metric,
-        label = paste0(salesman, "\n$", scales::comma(round(metric, digits = 0)))
-      ),
-      size = 3)
-  } +
-  # geom_label(aes(x = salesman,
-  #                y = get(salesman_metric),
-  #                label = paste0(salesman, "\n", scales::comma(round(get(salesman_metric), digits = 0)))),
-  #            size = 3) +
-  
-  labs(y = "",
-       x = "") +
-  
-  scale_y_continuous(expand = expansion(mult = c(-0.3, 0.1)),
-                     breaks = integer_breaks()) +
-  
-  theme(axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
-```
 
 <!-- # Next Month? -->
 
 <!-- Based on past business performance cycles, months + years -->
 
-```{r, label="Next Month", eval = FALSE}
+```{r, label="Next Month", eval = FALSE, eval=FALSE}
 # # years on right, months on left?
 # #
 # nmonth_metric <- "Back Gross"
@@ -1003,20 +603,9 @@ data %>%
 
 <!-- #### Now, lets look at some quick plots of the data. -->
 
-```{r}
-# ggplot(KDA1, aes(Date, Front_Gross_Profit)) + geom_point() + geom_smooth()
-# ggplot(KDA1, aes(Date, Back_Gross_Profit)) + geom_point() + geom_smooth()
-# ggplot(KDA1, aes(Date, Total_Gross_Profit)) + geom_point() + geom_smooth()
-# ggplot(KDA1, aes(Date, Cash_Price)) + geom_point() + geom_smooth()
-```
 
 
-```{r}
-# ggplot(KDA1, aes(x = Date)) + geom_smooth(aes(y = Front_Gross_Profit, col = "front"), se = F) +
-#   geom_smooth(aes(y = Back_Gross_Profit, col = "back"), se = F) + ylab("") +
-#   geom_smooth(aes(y = Total_Gross_Profit, col = "total"), se = F) +
-#   geom_smooth(aes(y = .04*Cash_Price, col = "cash"), se = F) 
-```
+
 
 <!-- #### If we hope to do anything with this, we will have to extract these trends. -->
 
@@ -1024,7 +613,7 @@ data %>%
 
 <!-- ### 4. Condensing -->
 
-```{r}
+```{r, echo = FALSE}
 # Day<- as.data.frame(seq(as.Date("2016-01-01"), as.Date("2020-11-16"), by="days"))
 # colnames(Day)<-c("Date")
 # temp<- group_by(KDA1, Date) %>%
@@ -1057,22 +646,6 @@ data %>%
 <!-- [n]. The missing values will automatically be predicted using a simple -->
 <!-- linear model (loess). -->
 
-```{r}
-# summary(Day)
-# Day %>%
-# ggplot(aes(x = Date)) + 
-#   geom_smooth(aes(y =.6*sum.tgp-600, color = "total gross"), 
-#               se = F, method = 'loess') +
-#   geom_smooth(aes(y = sum.bgp, color = "back gross"), 
-#               se = F, method = 'loess') + 
-#   geom_smooth(aes(y = .6*sum.fgp + 8700, color = "front gross"), 
-#               se = F, method = 'loess') +
-#   geom_smooth(aes(y = .15*(sum.cp-183000), color = "cash price"), 
-#               se = F, method = 'loess') +
-#   geom_smooth(aes(y = 1000*n+5000, color = "n sales"), 
-#               se = F, method = 'loess') + ylab("")
-```
-
 <!-- ### 5. Imputation -->
 
 <!-- #### I've chosen to impute the mssing values so we can get a complete df that we -->
@@ -1085,74 +658,20 @@ data %>%
 <!-- times [m = 20], and we get its best guess at what the missing values -->
 <!-- would be according to pmm. We can easily change the method later too. -->
 
-```{r, include=FALSE}
-# m<-'pmm'
-# junk<-capture.output(imp <- mice(data = Day, m = 20, method = c("",m,m,m,m,m)))
-# Day.full<-complete(imp, 20)
-# #The completed df
-# Day.full %>%
-# ggplot(aes(x = Date)) + 
-#   geom_smooth(aes(y =.6*sum.tgp-600, color = "total gross"), 
-#               se = F, method = 'loess') +
-#   geom_smooth(aes(y = sum.bgp, color = "back gross"), 
-#               se = F, method = 'loess') + 
-#   geom_smooth(aes(y = .6*sum.fgp + 8700, color = "front gross"), 
-#               se = F, method = 'loess') +
-#   geom_smooth(aes(y = .15*(sum.cp-183000), color = "cash price"), 
-#               se = F, method = 'loess') +
-#   geom_smooth(aes(y = 1000*n+5000, color = "n sales"), 
-#               se = F, method = 'loess') + ylab("")
-```
+<!-- # Data Sources -->
 
-```{r}
-# b<-decompose(ts(Day.full$sum.bgp, frequency =365))
-# plot(b) + title("Back Gross", line = -.5)
-# f<-decompose(ts(Day.full$sum.fgp, frequency =365))
-# plot(f)+ title("Front Gross", line = -.5)
-# t<-decompose(ts(Day.full$sum.tgp, frequency =365))
-# plot(t) + title("Total Gross", line = -.5)
-# c<-decompose(ts(Day.full$sum.cp, frequency =365))
-# plot(c) + title("Cash Price", line = -.5)
-# n<-decompose(ts(Day.full$n, frequency =365))
-# plot(n) + title("N Sold", line =  -.5)
-```
-
-```{r}
-#dummy for joining
-# time.seq<-seq.Date(from = as.Date("2016-01-01"), to = as.Date("2020-11-16"), by = 'day')
-# blank<-as.data.frame(time.seq)
-# colnames(blank)<-c("date")
-# ## Then the final df
-# rogue<- cbind(as.data.frame(Day.full$Date), as.data.frame(b$trend),
-#               as.data.frame(f$trend),
-#               as.data.frame(t$trend), as.data.frame(c$trend), 
-#               as.data.frame(n$trend))
-# colnames(rogue)<-c("date", "backg", "frontg", "totalg", "cp", "n")
-# rogue<-left_join(blank, rogue)
-# #Finally, a very informative plot of our trends so far
-# plot(rogue)
-```
-
-# Data Sources
-
-```{r, include=FALSE}
-
-
-
-```
-
-```{r display-info, results='asis'}
-for (i in 1:nrow(info_df)) {
-  cat("\n\n##[", info_df$name[i], "](", info_df$link[i], ")", sep = "")
-  cat("\n_", info_df$key[i], "_", sep = "")
-  cat("\n__", info_df$category[i], "__", sep = "")
-  cat("\n", info_df$updated[i], sep = "")
-  cat("\n", info_df$citation[i], sep = "")
-}
-```
-
-# References
+<!-- ```{r display-info, results='asis'} -->
+<!-- for (i in 1:nrow(info_df)) { -->
+<!--   cat("\n\n##[", info_df$name[i], "](", info_df$link[i], ")", sep = "") -->
+<!--   cat("\n_", info_df$key[i], "_", sep = "") -->
+<!--   cat("\n__", info_df$category[i], "__", sep = "") -->
+<!--   cat("\n", info_df$updated[i], sep = "") -->
+<!--   cat("\n", info_df$citation[i], sep = "") -->
+<!-- } -->
+<!-- ``` -->
 
 # Credit
 
-Author: Keaton Markey Version: 1.0 Date Revised: 1/11/2023
+Author: Keaton Markey 
+Version: 1.0 
+Date Revised: 10/11/2023

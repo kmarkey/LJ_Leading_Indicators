@@ -23,34 +23,34 @@ source("appData.R")
 
 # inputs
 
-tags$style(HTML("
-      @import url('https://fonts.googleapis.com/css2?family=Yusei+Magic&display=swap');
-      body {
-        background-color: black;
-        color: white;
-      }
-      h2 {
-        font-family: 'Yusei Magic', sans-serif;
-      }
-      .span.bootstrap-switch {
-        color: red;
-      }"))
+#' tags$style(HTML("
+#'       @import url('https://fonts.googleapis.com/css2?family=Yusei+Magic&display=swap');
+#'       body {
+#'         background-color: black;
+#'         color: white;
+#'       }
+#'       h2 {
+#'         font-family: 'Yusei Magic', sans-serif;
+#'       }
+#'       .span.bootstrap-switch {
+#'         color: red;
+#'       }"))
 
 
 #switchInput color while on
 #switchInput color while on
-tags$head(tags$style(HTML('.bootstrap-switch .bootstrap-switch-handle-off.bootstrap-switch-on,
-                                       .bootstrap-switch .bootstrap-switch-handle-on.bootstrap-switch-on {
-                                        background: --bs-green;
-                                        color: --bs-white;
-                                        }')))
-
-#switchInput color while off
-tags$head(tags$style(HTML('.bootstrap-switch .bootstrap-switch-handle-off.bootstrap-switch-off,
-                                       .bootstrap-switch .bootstrap-switch-handle-on.bootstrap-switch-off {
-                                        background: --bs-red;
-                                        color: --bs-black;
-                                        }')))
+# tags$head(tags$style(HTML('.bootstrap-switch .bootstrap-switch-handle-off.bootstrap-switch-on,
+#                                        .bootstrap-switch .bootstrap-switch-handle-on.bootstrap-switch-on {
+#                                         background: --bs-green;
+#                                         color: --bs-white;
+#                                         }')))
+# 
+# #switchInput color while off
+# tags$head(tags$style(HTML('.bootstrap-switch .bootstrap-switch-handle-off.bootstrap-switch-off,
+#                                        .bootstrap-switch .bootstrap-switch-handle-on.bootstrap-switch-off {
+#                                         background: --bs-red;
+#                                         color: --bs-black;
+#                                         }')))
 
 month_select <- selectInput(
   "month_select",
@@ -189,53 +189,64 @@ features_filter <- switchInput(
 
 lasso_switch <- switchInput(
   inputId = "lasso_model",
-  label = "Linear",
+  label = "LASSO",
   value = FALSE,
-  onStatus = "on",
-  offStatus = "off"
+  onStatus = "lasso"
 )
 
 tree_switch <- switchInput(
   "tree_model",
   "Decision Tree",
   value = FALSE,
-  onStatus = "on",
-  offStatus = "off"
+  onStatus = "tree"
 )
 
 random_switch <- switchInput(
   "random_model",
   "Random Forest",
   value = FALSE,
-  onStatus = "on",
-  offStatus = "off"
+  onStatus = "random"
 )
 
 arima_switch <- switchInput(
   "arima_model",
   "ARIMA",
   value = FALSE,
-  onStatus = "on",
-  offStatus = "off"
+  onStatus = "arima"
 )
 
 gru_switch <- switchInput(
   "gru_model",
   "GRU",
-  value = FALSE,
-  onStatus = "on",
-  offStatus = "off"
+  value = FALSE
 )
 
 lstm_switch <- switchInput(
   "lstm_model",
   "LSTM",
   value = FALSE,
-  onStatus = "on",
-  offStatus = "off"
+  onStatus = "lstm"
 )
 
+eval_score <- switchInput(
+  "eval_score",
+  "Score", 
+  value = TRUE,
+  onLabel = "MSE",
+  offLabel = "R2",
+  onStatus = "mse",
+  offStatus = "r2"
+)
+
+# htmltools::includeCSS("www/style.css")
+
+# tags$link(rel = "stylesheet", type = "text/css", href = "dark_mode.css")
+
 ui <- page_navbar(
+
+  theme = bs_theme() %>%
+    bs_add_rules(sass::sass_file("www/style.scss")),
+  
   title = "Leading Indicators",
   id  = "root",
   fluid = TRUE,
@@ -253,9 +264,6 @@ ui <- page_navbar(
         id = "history",
         
         sidebar = sidebar(metric, resolution, purchase_lease, new_used),
-        # type = "hidden",
-        #full_screen = TRUE,
-        #title = "History",
         
         nav_panel(
           title = "Time Series",
@@ -268,17 +276,8 @@ ui <- page_navbar(
         
         nav_panel(
           title = "Month Order",
-          value =
-            "monthorder",
+          value = "monthorder",
           shinyjs::useShinyjs(),
-          # tags$head(
-          #   tags$style(
-          #     type = "text/css",
-          #     #"{ display: table-cell; text-align: right; vertical-align: middle; }
-          #     #".form-group { display: table-row; }"
-          #   )
-          # ),
-
           card(
             fluidRow("Showing", n_months, " months and ", n_years, "years")
             ),
@@ -370,28 +369,33 @@ ui <- page_navbar(
   
   nav_panel(
     title = "Prediction",
-    value = "prediction",
     icon = icon("cubes-stacked"),
     
-    tags$head(
-      tags$style(
-        type = "text/css",
-        "#inline label{ display: table-cell; text-align: right; vertical-align: middle; }
-                #inline .form-group { display: table-row;}"
+    navset_card_tab(id = "prediction_page",
+                    
+                    
+      nav_panel(title = "Prediction", 
+                
+          layout_sidebar(
+            card(full_screen = TRUE,
+                 plotlyOutput("prediction")),
+            
+            sidebar = sidebar(lasso_switch,
+                              tree_switch,
+                              random_switch,
+                              arima_switch,
+                              gru_switch,
+                              lstm_switch,
+                              eval_score))),
+      
+      nav_panel(title = "Evaluation", 
+                value = "evaluation",
+                card(full_screen = TRUE,
+                     DT::DTOutput("prediction_eval"))
+                )
       )
     ),
-    
-    layout_sidebar(
-      card(full_screen = TRUE,
-           plotlyOutput("prediction")),
-      sidebar = sidebar(lasso_switch,
-                        tree_switch,
-                        random_switch,
-                        arima_switch,
-                        gru_switch,
-                        lstm_switch)
-    )
-  ),
+      
   
   nav_spacer(),
   

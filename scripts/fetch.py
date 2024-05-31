@@ -3,8 +3,10 @@ import os
 import logging
 import pandas as pd
 from scripts.hooks import collect_data, collect_info
-from scripts.config import config_logger, close_logger
+from scripts.py_utilities import config_logger, close_logger, read_run_params_py
 import datetime
+
+config_logger()
 
 stocklist = ["GM", "F", "TSLA", "AN", "MZDAY", "XOM", "TM", "LEA", "BWA", "VC", "GT", "NIO", "HMC", "RACE"]
 
@@ -54,7 +56,6 @@ fredpairs = {
     'fedfundseff':'FEDFUNDS',
     'treasurymat1': 'GS1',
     'treasurymat5': 'GS5',
-    'treasurymat7': 'GS7',
     'treasurymat10': 'GS10'
     }
 
@@ -62,24 +63,9 @@ glist = ['new cars', 'used cars', 'cars for sale', 'car for sale near me', 'best
 #===============================================================================
 
 # get bounds
-data = pd.read_csv("./data/sour/KDAc.csv")
-search_lower = str(datetime.datetime.strptime(data[['date']].min().iloc[0], "%Y-%m-%d") + pd.offsets.MonthBegin(-1) + pd.offsets.YearBegin(-1))[:10] 
-
+params = read_run_params_py()
 # what really matters::
-def end_of_month(dt):
-    todays_month = dt.month
-    tomorrows_month = (dt + datetime.timedelta(days=1)).month
-    return tomorrows_month != todays_month
-  
-max_kda_date = datetime.datetime.strptime(data[['date']].max().iloc[0], "%Y-%m-%d")
 
-if end_of_month(max_kda_date):
-  search_upper =  str(max_kda_date)[:10]
-else:
-  search_upper = str(datetime.datetime.strptime(data[['date']].max().iloc[0], "%Y-%m-%d") + pd.offsets.MonthEnd(-1))[:10]
+collect_data(stocklist = stocklist, fredpairs = fredpairs, glist = glist, search_lower=params['search_bottom'], search_upper = params['search_top'])
 
-
-collect_data(stocklist, fredpairs, glist, search_lower=search_lower, search_upper = search_upper)
-
-collect_info(stocklist, fredpairs, glist, search_lower=search_lower, search_upper = search_upper)
-
+collect_info(stocklist = stocklist, fredpairs = fredpairs, glist = glist, search_lower=params['search_bottom'], search_upper = params['search_top'])

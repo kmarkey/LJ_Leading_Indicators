@@ -93,8 +93,6 @@ def out_eval(data, criterion, verbose = 0):
         plt.plot(test['actual'], 'b')
         plt.plot(test['pred'], 'b--')
         plt.plot(pred['pred'], 'r')
-
-    return train_stat, test_stat
     
 def bake(y_train, y_test, pred_train, pred_test, pred):
     

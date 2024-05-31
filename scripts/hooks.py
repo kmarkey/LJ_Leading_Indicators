@@ -4,7 +4,7 @@ import requests
 import json
 import pandas as pd
 import re
-from scripts.config import config_logger, close_logger
+from scripts.py_utilities import config_logger, close_logger, get_newest_dir_py, get_newest_file_py
 import datetime
 import time
 from alpha_vantage.timeseries import TimeSeries # AV
@@ -16,49 +16,41 @@ from bs4 import BeautifulSoup
 
 class manager:
     
-    def __init__(self, name_class, keyname, search_lower = None, search_upper = None, keypath = "./keys/keys.txt", boundpath = "./keys/bounds.csv"):
+    def __init__(self, name_class, keyname = None, search_lower = None, search_upper = None, keypath = "./keys/keys.txt", runpath = "./logs/"):
         
         self.log = config_logger()
         
-        self.key = self.__key_from_file__(keyname = keyname, keypath = keypath)
-        
-        if search_lower == None and search_upper == None:
-            
-            self.search_lower, self.search_upper = self.__bounds_from_file__(boundpath)
+        # should read key from environment, else file
+        if keyname == None:
+            self.key = self.__key_from_file__(keyname = keyname, keypath = keypath)
         else:
-          
-            self.search_lower = search_lower
+            self.log.info("Key read from env")
+            self.key = os.getenv(keyname)
             
-            self.search_upper = search_upper
+        # should never read bounds from file
+        self.search_lower = search_lower
+        
+        self.search_upper = search_upper
         
         self.name_class = name_class
         
+        # outfile path
         self.path = os.path.join(os.getcwd(), "./data/in/{}.csv".format(self.name_class))
         
-        self.exist = pd.read_csv(self.path)
-        
-    def __bounds_from_file__(self, boundpath):
-        
-        try:
+        # read existing file from same path
+        if os.path.exists(self.path):
           
-            file = pd.read_csv(os.path.join(os.getcwd(), boundpath)).to_dict(orient = 'list')
+            self.exist = pd.read_csv(self.path)
             
-            lower = str(file.get("search_bottom")[0])
+        else:
           
-            upper = str(file.get("search_top")[0])
-            
-            self.log.debug("Lower bound set to: {l} and upper bound set to {u}".format(l = lower, u = upper))
-            
-            return lower, upper
-          
-        except:
-            
-            self.log.exception("Bounds file not read")
-            
-            return None
+            # will throw ERROR if doesn;t exist
+            self.exist = False
             
         close_logger(self.log)
             
+        # secrets??
+        
     def __key_from_file__(self, keyname, keypath):
       
         # not quite parsing correctly but still works with \n
@@ -90,9 +82,9 @@ class manager:
             
         close_logger(self.log)
     
-    @property
-    
     # test to see if saved file can be reused
+    # only if same exatc dimensions
+    @property
     def recyclable(self):
         
         try:
@@ -100,7 +92,7 @@ class manager:
                 datetime.datetime.strptime(self.search_lower, "%Y-%m-%d").year >= datetime.datetime.strptime(str(self.exist["date"].min()), "%Y-%m-%d").year and
                 datetime.datetime.strptime(self.search_upper, "%Y-%m-%d").month <= datetime.datetime.strptime(str(self.exist["date"].max()), "%Y-%m-%d").month and
                 datetime.datetime.strptime(self.search_upper, "%Y-%m-%d").year <= datetime.datetime.strptime(str(self.exist["date"].max()), "%Y-%m-%d").year and
-                len(self.food) <= self.exist.shape[1] - 1):
+                len(self.food) == self.exist.shape[1] - 1): # exact same length
                  
                 return True
                 
@@ -113,6 +105,7 @@ class manager:
             
             return False
             
+    # save functions
     def save_data(self, out):
         
         out.to_csv(self.path, index = False)
@@ -155,72 +148,90 @@ class stocks(manager):
             
             return self.data
             
-        if self.recyclable == True and save == True:
+        elif self.recyclable == True and save == True:
             
             self.log.info("{name}.csv, size: {dim}, can be reused! Leaving {name}.csv untouched".format(name = self.name_class, dim = self.exist.shape))
             
             self.data = self.exist
             
-            return
-            
         else:
             
-        # trim first of month
-            def trim_fom(df):
-                # always date
+        # trim first of month from alphavantage request
+            def fetch_av(tick):
+                
+                self.log.info("Fethcing {} stock data".format(tick))
+                url = 'https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={0}&apikey={1}&datatype=json'.format(tick, self.key)
+    
+                r = requests.get(url)
+                
+                data = r.json()
+                
                 try:
+                    data = data['Monthly Adjusted Time Series']
+                  
+                except (KeyError):
+                  
+                    ############# log msg
+                    self.log.error("AlphaVantage daily limit reached, {} not fetched".format(tick))
                     
-                    df['date'] = pd.to_datetime(df['date']).datetime.datetime.to_period('M').datetime.datetime.to_timestamp()
-                    
-                    df = df.query('@self.search_lower <= `date` & `date` <= @self.search_upper')
-                    
-                except:
-                    
-                    self.log.info("Column date not found")
+                    return pd.DataFrame(columns = ['date'])
+                  
+                # get whole df
+                whole = pd.DataFrame(data.items())
                 
-                return df
+                if whole.empty:
+                  
+                    self.log.warning("{} dataframe was empty".format(tick))
                     
-            def cleaner(df, tick):
+                    return pd.DataFrame(columns = ['date'])
+                  
+                # select values from column 1
+                v = pd.json_normalize(whole.loc[:,1])
                 
-                out = (df.sort_index(ascending = True)
-                            .reset_index()
-                            .rename({'4. close': '{}'.format(tick), 
-                                     '5. volume': '{}_v'.format(tick)}, 
-                                    axis = 'columns')
-                            .loc[:, ['date', '{}'.format(tick), '{}_v'.format(tick)]]
-                            .pipe(trim_fom))
-                            
-                return out
+                # bring together
+                p = (pd.concat([whole.loc[:,0]
+                        .reset_index(drop=True), v], axis=1)
+                        .rename(columns = {0: 'date',
+                                      '4. close': '{}'.format(tick),
+                                      '6. volume': '{}_v'.format(tick)}, errors="raise")
+                        .loc[:, ['date', '{}'.format(tick), '{}_v'.format(tick)]])
                 
+                # report shape for each tick
+                self.log.info(tick + ": " + str(p.shape[0]) + " " + str(p.shape[1]))
+                
+                # make date first of month
+                p['date'] = p['date'].map(lambda x: x[:-2] + "01")
+                
+                return(p)
+              
+            # empty df
             out = pd.DataFrame(columns = ['date'])
             
-            ts = TimeSeries(key = self.key, output_format = "pandas")
-        
-            for tick in stocklist:
-              
-                try:
-                    
-                    data, metadata = ts.get_monthly(symbol = tick)
-                    
-                    data = cleaner(df = data, tick = tick)
-                    
-                except ValueError:
-                  
-                    log.exception("{} is not a valid API call and will be excluded".format(tick))
-                    
-                    continue
+            i = 0
             
+            for tick in stocklist:
+                
+                data = fetch_av(tick)
+                
+                if data == None:
+                    pass
+                
                 out = out.merge(data, on = 'date', how = 'outer')
                 
-                if self.food.index(tick) % 5 == 4: # avoid AV timeout every 5
+                i += 1
+                
+                if i % 5 == 4:
+                    # pause to avoid rate limit
                     
-                    self.log.info("Sleeping for 60s to avoid AlphaVantage timeout")
+                    self.log.info("Pause for AlphaVantage RL")
                     
                     time.sleep(60)
                     
-                out = out.sort_values(by = 'date', ascending = True, ignore_index = True)
-                
-            self.data = out
+            out = out.sort_values(by = 'date', ascending = True, ignore_index = True)
+            
+            print(out.shape)
+            
+            out = out.loc[(out[['date']] >= self.search_lower) & (out[['date']] <= self.search_upper)].reset_index(drop = True)
             
             if save == True:
                 # save
@@ -294,12 +305,11 @@ class stocks(manager):
           
     def collect(self, stocklist, save = True):
         
-        self.get_csv(stocklist = stocklist, save = save)
+        self.get_csv(stocklicst = stocklist, save = save)
         
         self.get_info(stocklist = stocklist, save = save)
         
         return
-      
 
 class fred(manager):
     
@@ -424,7 +434,6 @@ class fred(manager):
         self.get_csv(fredpairs = fredpairs, save = save)
         
         self.get_info(fredpairs = fredpairs, save = save)
-
 
 class trends(manager):
     
@@ -570,7 +579,6 @@ class trends(manager):
         self.get_csv(glist = glist, save = save)
         
         self.get_info(glist = glist, save = save)
-
 
 def collect_data(stocklist, fredpairs, glist, search_lower = None, search_upper = None, save = True):
     
@@ -722,3 +730,13 @@ def collect_info(stocklist, fredpairs, glist, search_lower = None, search_upper 
 # 
 # #TooManyRequestsError
 # # use verbose=True for print output
+
+
+# import pandas as pd
+
+# df = pd.read_csv("data/in/stocks.csv")
+# df.iloc[:, 0]
+# df.loc['date']
+# df['date'] = pd.to_datetime(df['date']).to_period('M')
+# a = pd.to_datetime(df['date'])
+# a.to_period('M')
